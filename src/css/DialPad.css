@@ -1,0 +1,55 @@
+.dialpad-container {
+  width: 30vw;
+  min-width: 320px;
+  max-width: 800px;
+  height: 100vh;
+  color: var(--blue50);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+h1 {
+  font-weight: 200;
+  font-size: 3rem;
+  color: var(--blue50);
+  text-align: center;
+}
+
+h2 {
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 1.4rem;
+  margin-top: 0;
+  color: var(--blue50);
+  text-align: center;
+}
+
+.status {
+  display: flex;
+}
+
+.status-icon {
+  font-family: 'Material Icons Outlined';
+  font-size: 1rem;
+  line-height: 25px;
+  padding-left: 5px;
+}
+
+.digit-grid {
+  margin-top: 40px;
+  width: 320px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-gap: 1.5rem;
+  justify-items: center;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.call-timer {
+  color: var(--white);
+  font-size: 1.8rem;
+  font-weight: 300;
+}

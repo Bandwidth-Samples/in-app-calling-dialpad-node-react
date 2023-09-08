@@ -1,0 +1,30 @@
+:root {
+  --white: rgb(255, 255, 255);
+  --grey80: rgb(58, 53, 55);
+  --red50: rgb(217, 62, 61);
+  /* --lightOrange: rgb(255, 237, 232);
+  --orange500: rgb(255, 103, 60);
+  --orange700: rgb(165, 63, 12); */
+  /* --lightYellow: rgb(255, 248, 221);
+  --yellow500: rgb(255, 204, 0);
+  --yellow700: rgb(102, 82, 0);
+  --lightGreen: rgb(224, 255, 247);
+  --green500: rgb(0, 251, 185);
+  --green700: rgb(0, 92, 68); */
+  --green50: rgb(0, 191, 140);
+  /* --lightBlue: rgb(224, 247, 253);
+  --blue500: rgb(0, 190, 240);
+  --blue700: rgb(0, 70, 88); */
+  --blue25: rgb(131, 205, 246);
+  --blue50: rgb(7, 156, 238);
+  --blue80: rgb(8, 64, 98);
+  --blue95: rgb(8, 18, 29);
+  --background-color: var(--blue95);
+  --overpass: 'Overpass', sans-serif;
+  font-family: var(--overpass);
+}
+
+body {
+  margin: 0;
+  background-color: var(--background-color);
+}

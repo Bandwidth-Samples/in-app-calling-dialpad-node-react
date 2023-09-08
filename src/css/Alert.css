@@ -1,0 +1,55 @@
+/* Alert CSS */
+
+.alert-container {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.alert {
+  height: 2.4rem;
+  border: 1px solid;
+  padding: 0 .6rem;
+  display: flex;
+  justify-content: space-between;
+  gap: .6rem;
+}
+
+.alert-icon {
+  font-family: 'Material Icons Outlined';
+  font-size: 1.6rem;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.alert-text {
+  font-size: .9rem;
+  line-height: .9rem;
+  display: flex;
+  align-items: center;
+}
+
+.alert-success {
+  background-color: var(--lightGreen);
+  border-color: var(--green500);
+  color: var(--green700);
+}
+
+.alert-info {
+  background-color: var(--lightBlue);
+  border-color: var(--blue500);
+  color: var(--blue700);
+}
+
+.alert-warning {
+  background-color: var(--lightYellow);
+  border-color: var(--yellow500);
+  color: var(--yellow700);
+}
+
+.alert-error {
+  background-color: var(--lightOrange);
+  border-color: var(--orange500);
+  color: var(--orange700);
+}

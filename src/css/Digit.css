@@ -1,0 +1,31 @@
+.digit {
+  width: 70px;
+  height: 70px;
+  border: 2px solid var(--blue25);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.digit:hover {
+  background-color: var(--blue80);
+  cursor: pointer;
+}
+
+.number {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--blue50);
+  margin-top: 8px;
+  line-height: 2rem;
+}
+
+.letters {
+  font-size: 0.9rem;
+  font-weight: 200;
+  color: var(--white);
+  margin-top: 5px;
+  line-height: 1rem;
+}
