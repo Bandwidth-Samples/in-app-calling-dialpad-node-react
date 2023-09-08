@@ -11,6 +11,8 @@ import { useStopwatch } from 'react-timer-hook';
 
 export default function DialPad() {
   const authToken = process.env.REACT_APP_IDENTITY_TOKEN;
+  const defaultSourceNumber = process.env.BW_NUMBER; //?.replace(/\D/g, "");
+  console.log(defaultSourceNumber)
   const destinationNumberNote = "Call international or domestic. Include area code and country code, but don't add the '+'";
   const sourceNumberNote = "Enter a number on your BW account. Include area code and country code, but don't add the '+'";
   const {
@@ -24,13 +26,12 @@ export default function DialPad() {
   } = useStopwatch({ autoStart: false });
 
   const [destNumber, setDestNumber] = useState('');
-  const [sourceNumber, setSourceNumber] = useState('19195892106'); // TODO: grab this from an env variable
+  const [sourceNumber, setSourceNumber] = useState(`${defaultSourceNumber}`); // TODO: grab this from an env variable
   const [destNumberValid, setDestNumberValid] = useState(false);
   const [allowHangup, setAllowHangup] = useState(false);
   const [phone, setPhone] = useState(new BandwidthUA());
   const [activeCall, setActiveCall] = useState(null);
   const [webrtcStatus, setWebrtcStatus] = useState({ color: 'var(--blue50)', text: 'Connecting to WebRTC Service' });
-  const [statusIcon, setStatusIcon] = useState('signal_cellular_alt_1_bar');
 
   useEffect(() => {
     const serverConfig = {
@@ -203,10 +204,7 @@ export default function DialPad() {
     <div className="dialpad-container">
       <h1>In-App Calling (Global)</h1>
       <h2>(CLICK TO CALL - WEBRTC)</h2>
-      <div className='status' style={{color: webrtcStatus.color}}>
-        {webrtcStatus.text}
-        <span className='status-icon'>{statusIcon}</span>
-      </div>
+      <div className='status' style={{color: webrtcStatus.color}}>Status: {webrtcStatus.text}</div>
       <SingleLineInput
         label={'Source Number'}
         placeholder={''}

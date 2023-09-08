@@ -26,17 +26,6 @@ h2 {
   text-align: center;
 }
 
-.status {
-  display: flex;
-}
-
-.status-icon {
-  font-family: 'Material Icons Outlined';
-  font-size: 1rem;
-  line-height: 25px;
-  padding-left: 5px;
-}
-
 .digit-grid {
   margin-top: 40px;
   width: 320px;
