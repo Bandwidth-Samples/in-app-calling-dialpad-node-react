@@ -1,7 +1,7 @@
 .digit {
-  width: 70px;
-  height: 70px;
-  border: 2px solid var(--blue25);
+  width: var(--button-size);
+  height: var(--button-size);
+  border: 2px solid var(--blue65);
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -10,22 +10,21 @@
 }
 
 .digit:hover {
-  background-color: var(--blue80);
   cursor: pointer;
 }
 
-.number {
+.digit-number {
   font-size: 2rem;
   font-weight: 600;
-  color: var(--blue50);
-  margin-top: 8px;
+  color: var(--blue65);
+  margin-top: 12px;
   line-height: 2rem;
 }
 
-.letters {
-  font-size: 0.9rem;
-  font-weight: 200;
-  color: var(--white);
-  margin-top: 5px;
+.digit-letters {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--blue65);
+  margin-top: 10px;
   line-height: 1rem;
 }
