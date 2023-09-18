@@ -10,9 +10,8 @@ import { BandwidthUA } from "@bandwidth/bw-webrtc-sdk";
 import { useStopwatch } from 'react-timer-hook';
 
 export default function DialPad() {
-  const authToken = process.env.REACT_APP_IDENTITY_TOKEN;
-  const defaultSourceNumber = process.env.BW_NUMBER; //?.replace(/\D/g, "");
-  console.log(defaultSourceNumber)
+  const authToken = process.env.REACT_APP_IN_APP_CALLING_TOKEN;
+  const defaultSourceNumber = process.env.REACT_APP_IN_APP_CALLING_NUMBER;
   const destinationNumberNote = "Call international or domestic. Include area code and country code, but don't add the '+'";
   const sourceNumberNote = "Enter a number on your BW account. Include area code and country code, but don't add the '+'";
   const {
@@ -26,7 +25,7 @@ export default function DialPad() {
   } = useStopwatch({ autoStart: false });
 
   const [destNumber, setDestNumber] = useState('');
-  const [sourceNumber, setSourceNumber] = useState(`${defaultSourceNumber}`); // TODO: grab this from an env variable
+  const [sourceNumber, setSourceNumber] = useState(`${defaultSourceNumber}`);
   const [destNumberValid, setDestNumberValid] = useState(false);
   const [allowHangup, setAllowHangup] = useState(false);
   const [phone, setPhone] = useState(new BandwidthUA());
@@ -51,7 +50,7 @@ export default function DialPad() {
       serverConfig.iceServers
     );
 
-    newPhone.setOAuthToken(authToken);  // TODO: get this from the identity api
+    newPhone.setOAuthToken(authToken);
     setPhone(newPhone);
   },[authToken]);
 
@@ -62,10 +61,7 @@ export default function DialPad() {
         switch ('cause' + cause) {
           case "connected":
             console.log("phone>>> loginStateChanged: connected");
-          
             setWebrtcStatus({ color: 'var(--green50)', text: "Connected to WebRTC Service" });
-           
-
             break;
           case "disconnected":
             console.log("phone>>> loginStateChanged: disconnected");
