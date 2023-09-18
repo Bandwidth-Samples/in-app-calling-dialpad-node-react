@@ -64,7 +64,7 @@ export default function DialPad() {
       serverConfig.iceServers
     );
 
-    newPhone.setOAuthToken(authToken);  // TODO: get this from the identity api
+    newPhone.setOAuthToken(authToken);
     setPhone(newPhone);
   },[authToken]);
 
@@ -75,6 +75,10 @@ export default function DialPad() {
         switch ('cause' + cause) {
           case "connected":
             console.log("phone>>> loginStateChanged: connected");
+          
+            setWebrtcStatus({ color: 'var(--green50)', text: "Connected to WebRTC Service" });
+           
+
             break;
           case "disconnected":
             console.log("phone>>> loginStateChanged: disconnected");
