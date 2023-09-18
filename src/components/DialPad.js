@@ -16,7 +16,6 @@ import { countryCodeFormStyles, countryCodeSelectStyles, phoneNumberInputStyles 
 
 export default function DialPad() {
   const authToken = process.env.REACT_APP_IDENTITY_TOKEN;
-  // const defaultSourceNumber = process.env.BW_NUMBER; //?.replace(/\D/g, "");
   const sourceNumber = process.env.BW_NUMBER;
   const defaultNumberNote = 'Select a country or input a phone number';
   const {
@@ -75,10 +74,6 @@ export default function DialPad() {
         switch ('cause' + cause) {
           case "connected":
             console.log("phone>>> loginStateChanged: connected");
-          
-            setWebrtcStatus({ color: 'var(--green50)', text: "Connected to WebRTC Service" });
-           
-
             break;
           case "disconnected":
             console.log("phone>>> loginStateChanged: disconnected");
