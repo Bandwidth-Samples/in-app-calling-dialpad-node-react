@@ -10,8 +10,8 @@ import { BandwidthUA } from "@bandwidth/bw-webrtc-sdk";
 import { useStopwatch } from 'react-timer-hook';
 
 export default function DialPad() {
-  const authToken = process.env.REACT_APP_IDENTITY_TOKEN;
-  const defaultSourceNumber = process.env.REACT_APP_BW_NUMBER;
+  const authToken = process.env.REACT_APP_IN_APP_CALLING_TOKEN;
+  const defaultSourceNumber = process.env.REACT_APP_IN_APP_CALLING_NUMBER;
   const destinationNumberNote = "Call international or domestic. Include area code and country code, but don't add the '+'";
   const sourceNumberNote = "Enter a number on your BW account. Include area code and country code, but don't add the '+'";
   const {

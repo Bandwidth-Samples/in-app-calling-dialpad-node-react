@@ -30,6 +30,6 @@ yarn start
 The sample app uses the below environmental variables.
 
 ```sh
-REACT_APP_IDENTITY_TOKEN             # You Identity Token
-REACT_APP_BW_NUMBER                  # A valid phone number on your account
+REACT_APP_IN_APP_CALLING_TOKEN             # You Identity Token
+REACT_APP_IN_APP_CALLING_NUMBER            # A valid phone number on your account
 ```
