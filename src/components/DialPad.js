@@ -23,6 +23,8 @@ export default function DialPad() {
   const [allowHangup, setAllowHangup] = useState(false);
   const [phone, setPhone] = useState(new BandwidthUA());
   const [activeCall, setActiveCall] = useState(null);
+  const [dialedNumber, setDialedNumber] = useState('');
+  const [allowBackspace, setAllowBackspace] = useState(false);
   const [allowMute, setAllowMute] = useState(false);
   const [allowHold, setAllowHold] = useState(false);
   const [onMute, setOnMute] = useState(false);
@@ -90,6 +92,7 @@ export default function DialPad() {
         setActiveCall(null);
         setCallStatus('Add Number');
         setWebRtcStatus('Idle');
+        setAllowBackspace(true);
         console.log("Call terminated: " + cause);
         console.log("call_terminated_panel");
       },
@@ -140,6 +143,7 @@ export default function DialPad() {
 
   useEffect(() => {
     destNumber.length > 7 ? setDestNumberValid(true) : setDestNumberValid(false);
+    destNumber.length > 0 ? setAllowBackspace(true) : setAllowBackspace(false);
     setDestNumber(destNumber.replace(/\D/g, ''));
   }, [destNumber]);
 
@@ -175,7 +179,9 @@ export default function DialPad() {
       setCallStatus('Calling');
       setWebRtcStatus('Ringing');
       setActiveCall(phone.call(`+${destNumber}`));
+      setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
+      setAllowBackspace(false);
       reset();
       start();
     }
@@ -239,7 +245,7 @@ export default function DialPad() {
   const backspaceButtonProps = {
     type: 'backspace',
     onClick: handleBackspaceClick,
-    disabled: destNumber.length === 0,
+    disabled: !allowBackspace,
     Icon: BackspaceIcon,
     iconColor: 'var(--grey15)',
     fontSize: 'medium'
@@ -250,13 +256,13 @@ export default function DialPad() {
       <StatusBar {...statusBarProps}/>
       <div className="dialpad-container">
         <h2>{callStatus}</h2>
-        {!allowHangup ? <NumberInput {...numberInputProps}/> : <div className='calling-number'>+{destNumber}</div>}
+        {!allowHangup ? <NumberInput {...numberInputProps}/> : <div className='dialed-number'>{dialedNumber}</div>}
         <DigitGrid onClick={handleDigitClick}/>
         <div className='call-controls'>
           <div className='call-start-end'>
             {!allowHangup ? <CallControlButton {...startCallButtonProps}/> : <CallControlButton {...endCallButtonProps}/>}
           </div>
-          {destNumber.length > 0 && <CallControlButton {...backspaceButtonProps}/>}
+          {allowBackspace && <CallControlButton {...backspaceButtonProps}/>}
         </div>
       </div>
     </div>

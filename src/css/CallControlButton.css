@@ -22,11 +22,15 @@
 }
 
 .start-call-button:hover:enabled {
-  background-color: var(--green80);
+  background-color: var(--green90);
 }
 
 .end-call-button {
   background-color: var(--red55);
+}
+
+.end-call-button:hover:enabled {
+  background-color: var(--red90);
 }
 
 .backspace-button {

@@ -26,8 +26,10 @@ h2 {
   text-align: center;
 }
 
-.calling-number {
+.dialed-number {
   color: black;
+  height: 66px;
+  margin-bottom: 5px;
   font-family: 'Overpass';
   font-size: 28px;
   font-weight: 700;
