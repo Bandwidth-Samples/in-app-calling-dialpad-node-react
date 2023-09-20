@@ -1,5 +1,10 @@
+.app-container {
+  width: 322px;
+  height: auto;
+}
+
 .dialpad-container {
-  width: 350px;
+  width: 322px;
   height: auto;
   color: var(--blue50);
   display: flex;
@@ -8,7 +13,8 @@
   align-items: center;
   border-radius: 5px;
   box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.3);
-  padding: 10px 20px;
+  padding: 10px 16px;
+  box-sizing: border-box;
 }
 
 h2 {
@@ -20,23 +26,6 @@ h2 {
   text-align: center;
 }
 
-.number-input {
-  width: 100%;
-  height: 44px;
-  display: flex;
-  flex-direction: row;
-  margin-bottom: 5px;
-}
-
-.number-note {
-  width: 100%;
-  height: 60px;
-  color: var(--grey55);
-  font-style: italic;
-  font-size: 14px;
-  font-weight: 400;
-}
-
 .calling-number {
   color: black;
   font-family: 'Overpass';
@@ -44,23 +33,12 @@ h2 {
   font-weight: 700;
 }
 
-.digit-grid {
-  margin-top: 20px;
-  width: 320px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-gap: 1.5rem;
-  justify-items: center;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
 .call-controls {
-  width: 320px;
+  width: 100%;
   height: 100px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-gap: 1.5rem;
+  grid-gap: 1.2rem;
   justify-items: center;
   align-items: center;
   margin-bottom: 10px;
@@ -68,63 +46,4 @@ h2 {
 
 .call-start-end {
   grid-column: 2 / 3;
-}
-
-.call-start-end button {
-  width: var(--button-size);
-  height: var(--button-size);
-  border-radius: 50%;
-  border: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.call-start-end button:hover {
-  cursor: pointer;
-}
-
-.call-start-end button:disabled {
-  cursor: default;
-}
-
-.start-call-button {
-  background-color: var(--green65);
-}
-
-.end-call-button {
-  background-color: var(--red55);
-}
-
-.call-button-img {
-  width: 36px;
-  height: 36px;
-}
-
-.backspace-button {
-  grid-column: 3 / 4;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  outline: none;
-  border: none;
-  background-color: var(--background-color);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.backspace-button:hover {
-  cursor: pointer;
-}
-
-.backspace-button-img {
-  width: 36px;
-  height: 36px;
-}
-
-.call-timer {
-  color: var(--white);
-  font-size: 1.8rem;
-  font-weight: 300;
 }

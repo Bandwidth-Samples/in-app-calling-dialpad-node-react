@@ -1,49 +1,32 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import '../css/DialPad.css';
-import Digit from './Digit';
-import StartCallIcon from '../img/start-call-icon.svg';
-import EndCallIcon from '../img/end-call-icon.svg';
-import BackspaceIcon from '../img/backspace-icon.svg';
-import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
-import Select from '@mui/material/Select';
+import StatusBar from './StatusBar';
+import DigitGrid from './DigitGrid';
+import NumberInput from './NumberInput';
+import CallControlButton from './CallControlButton';
+import CallIcon from '@mui/icons-material/Call';
+import CallEndIcon from '@mui/icons-material/CallEnd';
+import BackspaceIcon from '@mui/icons-material/Backspace';
 import { BandwidthUA } from "@bandwidth/bw-webrtc-sdk";
 import { useStopwatch } from 'react-timer-hook';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { FormControl, InputLabel } from '@mui/material';
-import countries from '../utils/countries';
-import { countryCodeFormStyles, countryCodeSelectStyles, phoneNumberInputStyles } from '../utils/styles';
 
 export default function DialPad() {
-  const authToken = process.env.REACT_APP_IDENTITY_TOKEN;
-  const sourceNumber = process.env.BW_NUMBER;
-  const defaultNumberNote = 'Select a country or input a phone number';
-  const {
-    totalSeconds,
-    seconds,
-    minutes,
-    hours,
-    start,
-    pause,
-    reset,
-  } = useStopwatch({ autoStart: false });
+  const authToken = process.env.REACT_APP_IN_APP_CALLING_TOKEN;
+  const sourceNumber = process.env.REACT_APP_IN_APP_CALLING_NUMBER;
+  const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
+  // `${hours.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}:${minutes.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}:${seconds.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}`
 
   const [destNumber, setDestNumber] = useState('');
-  const [status, setStatus] = useState('Add Number');
-  const [countryCode, setCountryCode] = useState('');
-  const [phoneNumberNote, setPhoneNumberNote] = useState(defaultNumberNote);
+  const [webRtcStatus, setWebRtcStatus] = useState('Idle');
+  const [callStatus, setCallStatus] = useState('Add Number');
   const [destNumberValid, setDestNumberValid] = useState(false);
   const [allowHangup, setAllowHangup] = useState(false);
   const [phone, setPhone] = useState(new BandwidthUA());
   const [activeCall, setActiveCall] = useState(null);
-
-  const numberInputStyle = {
-    display: `${allowHangup ? 'none' : 'flex'}`
-  }
-
-  const callingNumberStyle = {
-    display: `${allowHangup ? 'flex' : 'none'}`
-  }
+  const [allowMute, setAllowMute] = useState(false);
+  const [allowHold, setAllowHold] = useState(false);
+  const [onMute, setOnMute] = useState(false);
+  const [onHold, setOnHold] = useState(false);
 
   useEffect(() => {
     const serverConfig = {
@@ -99,12 +82,14 @@ export default function DialPad() {
 
       callTerminated: function (call, message, cause) {
         console.log(`phone>>> call terminated callback, cause=${cause}`);
-        setAllowHangup(false);
         if (call !== activeCall) {
           console.log("terminated no active call");
           return;
         }
+        setAllowHangup(false);
         setActiveCall(null);
+        setCallStatus('Add Number');
+        setWebRtcStatus('Idle');
         console.log("Call terminated: " + cause);
         console.log("call_terminated_panel");
       },
@@ -154,44 +139,31 @@ export default function DialPad() {
   }, []);
 
   useEffect(() => {
-    if (destNumber.length > 7) {
-      setDestNumberValid(true);
-    } else {
-      setDestNumberValid(false);
-    }
-    setDestNumber(destNumber.replace(/\D/g, ""));
+    destNumber.length > 7 ? setDestNumberValid(true) : setDestNumberValid(false);
+    setDestNumber(destNumber.replace(/\D/g, ''));
   }, [destNumber]);
 
   useEffect(() => {
     if (activeCall === null) { pause() }
   }, [activeCall]);
 
-  useEffect(() => {
-    if (destNumber.length > 0 || countryCode.length > 0) {
-      setPhoneNumberNote('Acceptable +1 formats include E.164, 11-digit, or 10-digit. For example: +18005551234, (919) 555-1234, 1.800.555.1234');
-    } else {
-      setPhoneNumberNote(defaultNumberNote);
-    }
-  }, [destNumber, countryCode]);
-  
-  const handleDigitClick = useCallback(
-    (value) => (event) => {
-      if (activeCall) {
-        activeCall.sendDTMF(value)
-      }
-      else {
-        setDestNumber((destNumber) => destNumber.concat(value));
-      }
-    },
-    [activeCall]
-  );
-
-  const handleCountryCode = (e) => {
-    setCountryCode(e.target.value);
-  };
+  // const handleDigitClick = useCallback(
+  //   (value) => (event) => {
+  //     if (activeCall) {
+  //       activeCall.sendDTMF(value)
+  //     }
+  //     else {
+  //       setDestNumber((destNumber) => destNumber.concat(value));
+  //     }
+  //   },
+  //   [activeCall]
+  // );
+  const handleDigitClick = (value) => {
+    activeCall ? activeCall.sendDTMF(value) : setDestNumber((destNumber) => destNumber.concat(value));
+  }
 
   const handlePhoneNumber = (e) => {
-    setDestNumber(e.target.value.replace(/\D/g, ""));
+    setDestNumber(e.target.value.replace(/\D/g, ''));
   };
 
   const handleBackspaceClick = () => {
@@ -200,8 +172,9 @@ export default function DialPad() {
 
   const handleDialClick = () => {
     if (phone.isInitialized()) {
-      setStatus('Calling...');
-      setActiveCall(phone.call(`${countries[countryCode].code}${destNumber}`));
+      setCallStatus('Calling');
+      setWebRtcStatus('Ringing');
+      setActiveCall(phone.call(`+${destNumber}`));
       setAllowHangup(true);
       reset();
       start();
@@ -216,66 +189,76 @@ export default function DialPad() {
     }
   };
 
+  const handleHoldClick = () => {
+    if (activeCall) {
+      if (!activeCall.isRemoteHold()) {
+        activeCall.hold();
+      }
+    }
+    // setOnHold(!onHold);
+  };
+
+  const handleMuteClick = () => {
+    if (activeCall) {
+      activeCall.isAudioMuted() ? activeCall.muteAudio(false) : activeCall.muteAudio(true);
+    }
+    // setOnMute(!onMute);
+  };
+
+  const statusBarProps = {
+    muteClick: handleMuteClick,
+    holdClick: handleHoldClick,
+    webRtcStatus,
+    allowMute,
+    allowHold,
+    onMute,
+    onHold
+  };
+
+  const numberInputProps = {
+    onChange: handlePhoneNumber,
+    value: destNumber
+  };
+
+  const endCallButtonProps = {
+    type: 'end-call',
+    onClick: handleHangUpClick,
+    disabled: !allowHangup,
+    Icon: CallEndIcon,
+    iconColor: 'var(--white)'
+  };
+
+  const startCallButtonProps = {
+    type: 'start-call',
+    onClick: handleDialClick,
+    disabled: !destNumberValid,
+    Icon: CallIcon,
+    iconColor: 'var(--white)'
+  };
+
+  const backspaceButtonProps = {
+    type: 'backspace',
+    onClick: handleBackspaceClick,
+    disabled: destNumber.length === 0,
+    Icon: BackspaceIcon,
+    iconColor: 'var(--grey15)',
+    fontSize: 'medium'
+  };
+
   return (
-    <div className="dialpad-container">
-      <h2>{status}</h2>
-      <div className='number-input' style={numberInputStyle}>
-        <FormControl sx={countryCodeFormStyles}>
-          <InputLabel id="country-code-label">Country</InputLabel>
-          <Select
-            value={countryCode}
-            onChange={handleCountryCode}
-            renderValue={(p) => countries[p].value}
-            variant='outlined'
-            label='Country'
-            sx={countryCodeSelectStyles}
-            IconComponent = {ExpandMoreIcon}
-          >
-            {Object.keys(countries).map((country) => (
-              <MenuItem value={country}>{countries[country].name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
-          onChange={handlePhoneNumber}
-          value={destNumber}
-          sx={phoneNumberInputStyles}
-          label=""
-          placeholder="Phone Number"
-        />
-      </div>
-      <div className='number-note' style={numberInputStyle}>{phoneNumberNote}</div>
-      {/* <div className='calling-number' style={callingNumberStyle}>{countries[countryCode].code ? countries[countryCode].code : ''} {destNumber}</div> */}
-      <div className='digit-grid'>
-        <Digit number={1} letters={' '} onClick={handleDigitClick('1')}/>
-        <Digit number={2} letters={'ABC'} onClick={handleDigitClick('2')}/>
-        <Digit number={3} letters={'DEF'} onClick={handleDigitClick('3')}/>
-        <Digit number={4} letters={'GHI'} onClick={handleDigitClick('4')}/>
-        <Digit number={5} letters={'JKL'} onClick={handleDigitClick('5')}/>
-        <Digit number={6} letters={'MNO'} onClick={handleDigitClick('6')}/>
-        <Digit number={7} letters={'PQRS'} onClick={handleDigitClick('7')}/>
-        <Digit number={8} letters={'TUV'} onClick={handleDigitClick('8')}/>
-        <Digit number={9} letters={'WXYZ'} onClick={handleDigitClick('9')}/>
-        <Digit number={'*'} letters={' '} onClick={handleDigitClick('*')}/>
-        <Digit number={0} letters={'+'} onClick={handleDigitClick('0')}/>
-        <Digit number={'#'} letters={' '} onClick={handleDigitClick('#')}/>
-      </div>
-      <div className='call-controls'>
-        <div className='call-start-end'>
-          {!allowHangup ? 
-          <button className='start-call-button' onClick={handleDialClick} disabled={!destNumberValid}>
-              <img src={StartCallIcon} className='call-button-img'/>
-          </button>
-          :
-          <button className='end-call-button' onClick={handleHangUpClick} disabled={!allowHangup}>
-            <img src={EndCallIcon} className='call-button-img'/>
-          </button>}
+    <div className='app-container'>
+      <StatusBar {...statusBarProps}/>
+      <div className="dialpad-container">
+        <h2>{callStatus}</h2>
+        {!allowHangup ? <NumberInput {...numberInputProps}/> : <div className='calling-number'>+{destNumber}</div>}
+        <DigitGrid onClick={handleDigitClick}/>
+        <div className='call-controls'>
+          <div className='call-start-end'>
+            {!allowHangup ? <CallControlButton {...startCallButtonProps}/> : <CallControlButton {...endCallButtonProps}/>}
+          </div>
+          {destNumber.length > 0 && <CallControlButton {...backspaceButtonProps}/>}
         </div>
-        {destNumber.length > 0 && <button className='backspace-button' onClick={handleBackspaceClick} disabled={destNumber.length === 0}>
-          <img src={BackspaceIcon} className='backspace-button-img'/>
-        </button>}
       </div>
-      {/* <div className='call-timer'>{`${hours.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}:${minutes.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}:${seconds.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}`}</div> */}
     </div>
-  )
+  );
 }
