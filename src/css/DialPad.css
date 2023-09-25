@@ -30,7 +30,7 @@ h2 {
   color: black;
   height: 66px;
   margin-bottom: 5px;
-  font-family: 'Overpass';
+  font-family: var(--overpass);
   font-size: 28px;
   font-weight: 700;
 }

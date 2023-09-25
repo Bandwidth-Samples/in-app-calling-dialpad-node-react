@@ -8,7 +8,7 @@ export default function NumberInput ({ onChange, value }) {
   const phoneNumberInputStyle = {
     width: '100%',
     '.MuiOutlinedInput-root': { height: '45px', border: '2px solid var(--grey20)', marginTop: '-1px' },
-    '.MuiInputBase-input': { lineHeight: '12px', fontFamily: 'Overpass' },
+    '.MuiInputBase-input': { lineHeight: '12px', fontFamily: 'var(--overpass)' },
     '& fieldset': { border: 'none' },
     '.MuiInputBase-input::placeholder': { color: 'var(--grey55)', opacity: '1' }
   };
