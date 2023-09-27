@@ -4,7 +4,7 @@ import TextField from '@mui/material/TextField';
 import { InputAdornment } from '@mui/material';
 
 export default function NumberInput ({ onChange, value }) {
-  const phoneNumberNote = 'Enter Phone Number in E.164 Format.';
+  const phoneNumberNote = 'Enter phone number in E.164 format.';
   const phoneNumberInputStyle = {
     width: '100%',
     '.MuiOutlinedInput-root': { height: '45px', border: '2px solid var(--grey20)', marginTop: '-1px' },

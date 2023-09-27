@@ -16,3 +16,7 @@
   font-size: 14px;
   font-weight: 400;
 }
+
+.number-input p {
+  margin-top: -1px;
+}
