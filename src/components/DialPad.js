@@ -7,6 +7,7 @@ import CallControlButton from './CallControlButton';
 import CallIcon from '@mui/icons-material/Call';
 import CallEndIcon from '@mui/icons-material/CallEnd';
 import BackspaceIcon from '@mui/icons-material/Backspace';
+import ShortcutOutlinedIcon from '@mui/icons-material/ShortcutOutlined';
 import { BandwidthUA } from '@bandwidth/bw-webrtc-sdk';
 import { useStopwatch } from 'react-timer-hook';
 
@@ -251,25 +252,23 @@ export default function DialPad() {
     type: 'end-call',
     onClick: handleHangUpClick,
     disabled: !allowHangup,
-    Icon: CallEndIcon,
-    iconColor: 'var(--white)'
+    Icon: CallEndIcon
   };
 
   const startCallButtonProps = {
     type: 'start-call',
     onClick: handleDialClick,
     disabled: !destNumberValid,
-    Icon: CallIcon,
-    iconColor: 'var(--white)'
+    Icon: CallIcon
   };
 
   const backspaceButtonProps = {
     type: 'backspace',
     onClick: handleBackspaceClick,
     disabled: !allowBackspace,
-    Icon: BackspaceIcon,
-    iconColor: 'var(--grey15)',
-    fontSize: 'medium'
+    Icon: ShortcutOutlinedIcon,
+    iconColor: 'var(--blue65)',
+    fontSize: 'small'
   };
 
   return (
@@ -283,7 +282,7 @@ export default function DialPad() {
           <div className='call-start-end'>
             {!allowHangup ? <CallControlButton {...startCallButtonProps}/> : <CallControlButton {...endCallButtonProps}/>}
           </div>
-          {allowBackspace && <CallControlButton {...backspaceButtonProps}/>}
+          <CallControlButton {...backspaceButtonProps}/>
         </div>
         <video autoPlay id='remote-video-container' style={{display: 'none'}}></video>
       </div>

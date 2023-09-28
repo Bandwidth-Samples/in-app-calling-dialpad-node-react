@@ -44,9 +44,15 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  transform: scaleX(-1);
 }
 
-.backspace-button svg:hover {
+.backspace-button:disabled {
+  cursor: default;
+  background-color: var(--grey15);
+}
+
+.backspace-button:hover:enabled {
   cursor: pointer;
-  color: var(--grey65);
+  background-color: var(--blue5);
 }
