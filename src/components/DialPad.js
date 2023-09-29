@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import '../css/DialPad.css';
 import StatusBar from './StatusBar';
 import DigitGrid from './DigitGrid';
@@ -6,7 +6,6 @@ import NumberInput from './NumberInput';
 import CallControlButton from './CallControlButton';
 import CallIcon from '@mui/icons-material/Call';
 import CallEndIcon from '@mui/icons-material/CallEnd';
-import BackspaceIcon from '@mui/icons-material/Backspace';
 import ShortcutOutlinedIcon from '@mui/icons-material/ShortcutOutlined';
 import { BandwidthUA } from '@bandwidth/bw-webrtc-sdk';
 import { useStopwatch } from 'react-timer-hook';
