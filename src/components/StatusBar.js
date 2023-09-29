@@ -13,7 +13,7 @@ export default function StatusBar({ muteClick, holdClick, webRtcStatus, allowMut
   const holdIcon = onHold ? <CallIcon sx={iconStyle}/> : <PhonePausedIcon sx={iconStyle}/>;
 
   const statusBadgeStyleMap = {
-    'Idle': 'var(--yellow65)',
+    'Idle': 'var(--grey15)',
     'Connected': 'var(--green65)',
     'On Mute': 'var(--red55)',
     'On Hold': 'var(--maroon50)',
@@ -23,7 +23,7 @@ export default function StatusBar({ muteClick, holdClick, webRtcStatus, allowMut
   const statusBadgeStyle = {
     borderRadius: '6px',
     textTransform: 'uppercase',
-    color: 'var(--white)',
+    color: webRtcStatus == 'Idle' ? 'var(--grey65)' : 'var(--white)',
     fontSize: '16px',
     lineHeight: '16px',
     fontWeight: 400,
