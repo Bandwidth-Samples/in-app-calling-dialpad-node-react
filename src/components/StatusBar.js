@@ -23,7 +23,7 @@ export default function StatusBar({ muteClick, holdClick, webRtcStatus, allowMut
   const statusBadgeStyle = {
     borderRadius: '6px',
     textTransform: 'uppercase',
-    color: webRtcStatus == 'Idle' ? 'var(--grey65)' : 'var(--white)',
+    color: webRtcStatus === 'Idle' ? 'var(--grey65)' : 'var(--white)',
     fontSize: '16px',
     lineHeight: '16px',
     fontWeight: 400,
