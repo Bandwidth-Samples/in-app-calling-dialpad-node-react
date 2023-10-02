@@ -1,45 +1,43 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import '../css/DialPad.css';
-import Digit from './Digit';
-import SingleLineInput from './SingleLineInput';
-import IconButton from "@mui/material/IconButton";
-import WifiCallingIcon from "@mui/icons-material/WifiCalling";
-import CallEndIcon from "@mui/icons-material/CallEnd";
-import BackspaceIcon from '@mui/icons-material/Backspace';
-import { BandwidthUA } from "@bandwidth/bw-webrtc-sdk";
+import StatusBar from './StatusBar';
+import DigitGrid from './DigitGrid';
+import NumberInput from './NumberInput';
+import CallControlButton from './CallControlButton';
+import CallIcon from '@mui/icons-material/Call';
+import CallEndIcon from '@mui/icons-material/CallEnd';
+import ShortcutOutlinedIcon from '@mui/icons-material/ShortcutOutlined';
+import { BandwidthUA } from '@bandwidth/bw-webrtc-sdk';
 import { useStopwatch } from 'react-timer-hook';
 
 export default function DialPad() {
   const authToken = process.env.REACT_APP_IN_APP_CALLING_TOKEN;
-  const defaultSourceNumber = process.env.REACT_APP_IN_APP_CALLING_NUMBER;
-  const destinationNumberNote = "Call international or domestic. Include area code and country code, but don't add the '+'";
-  const sourceNumberNote = "Enter a number on your BW account. Include area code and country code, but don't add the '+'";
-  const {
-    totalSeconds,
-    seconds,
-    minutes,
-    hours,
-    start,
-    pause,
-    reset,
-  } = useStopwatch({ autoStart: false });
+  const sourceNumber = process.env.REACT_APP_IN_APP_CALLING_NUMBER;
+  const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
 
   const [destNumber, setDestNumber] = useState('');
-  const [sourceNumber, setSourceNumber] = useState(`${defaultSourceNumber}`);
+  const [webRtcStatus, setWebRtcStatus] = useState('Idle');
+  const [callStatus, setCallStatus] = useState('Add Number');
   const [destNumberValid, setDestNumberValid] = useState(false);
   const [allowHangup, setAllowHangup] = useState(false);
   const [phone, setPhone] = useState(new BandwidthUA());
   const [activeCall, setActiveCall] = useState(null);
-  const [webrtcStatus, setWebrtcStatus] = useState({ color: 'var(--blue50)', text: 'Connecting to WebRTC Service' });
+  const [callConfirmed, setCallConfirmed] = useState(false);
+  const [dialedNumber, setDialedNumber] = useState('');
+  const [allowBackspace, setAllowBackspace] = useState(false);
+  const [allowMute, setAllowMute] = useState(false);
+  const [allowHold, setAllowHold] = useState(false);
+  const [onMute, setOnMute] = useState(false);
+  const [onHold, setOnHold] = useState(false);
 
   useEffect(() => {
     const serverConfig = {
-      domain: "gw.webrtc-app.bandwidth.com",
-      addresses: ["wss://gw.webrtc-app.bandwidth.com:10081"],
+      domain: 'gw.webrtc-app.bandwidth.com',
+      addresses: ['wss://gw.webrtc-app.bandwidth.com:10081'],
       iceServers: [
-        "stun.l.google.com:19302",
-        "stun1.l.google.com:19302",
-        "stun2.l.google.com:19302",
+        'stun.l.google.com:19302',
+        'stun1.l.google.com:19302',
+        'stun2.l.google.com:19302',
       ],
     };
     const newPhone = new BandwidthUA();
@@ -59,79 +57,85 @@ export default function DialPad() {
       loginStateChanged: function (isLogin, cause) {
         // eslint-disable-next-line default-case
         switch ('cause' + cause) {
-          case "connected":
-            console.log("phone>>> loginStateChanged: connected");
-            setWebrtcStatus({ color: 'var(--green50)', text: "Connected to WebRTC Service" });
+          case 'connected':
+            console.log('phone>>> loginStateChanged: connected');
             break;
-          case "disconnected":
-            console.log("phone>>> loginStateChanged: disconnected");
+          case 'disconnected':
+            console.log('phone>>> loginStateChanged: disconnected');
             if (phone.isInitialized())
               // after deinit() phone will disconnect SBC.
-              console.log("Cannot connect to SBC server");
+              console.log('Cannot connect to SBC server');
             break;
-          case "login failed":
-            console.log("phone>>> loginStateChanged: login failed");
+          case 'login failed':
+            console.log('phone>>> loginStateChanged: login failed');
             break;
-          case "login":
-            console.log("phone>>> loginStateChanged: login");
+          case 'login':
+            console.log('phone>>> loginStateChanged: login');
             break;
-          case "logout":
-            console.log("phone>>> loginStateChanged: logout");
+          case 'logout':
+            console.log('phone>>> loginStateChanged: logout');
             break;
         }
       },
 
       outgoingCallProgress: function (call, response) {
-        console.log("phone>>> outgoing call progress");
+        console.log('phone>>> outgoing call progress');
       },
 
       callTerminated: function (call, message, cause) {
         console.log(`phone>>> call terminated callback, cause=${cause}`);
-        setAllowHangup(false);
         if (call !== activeCall) {
-          console.log("terminated no active call");
+          console.log('terminated no active call');
           return;
         }
+        setAllowHangup(false);
         setActiveCall(null);
-        console.log("Call terminated: " + cause);
-        console.log("call_terminated_panel");
+        setCallStatus('Add Number');
+        setWebRtcStatus('Idle');
+        setAllowBackspace(true);
+        setAllowHold(false);
+        setAllowMute(false);
+        setOnHold(false);
+        setOnMute(false);
+        setCallConfirmed(false);
+        console.log(`Call terminated: ${cause}`);
+        console.log('call_terminated_panel');
       },
 
       callConfirmed: function (call, message, cause) {
-        console.log("phone>>> callConfirmed");
+        console.log('phone>>> callConfirmed');
         setAllowHangup(true);
-        let remoteVideo = document.getElementById("remote_video");
-        let vs = remoteVideo.style;
-        vs.display = "block";
-        vs.width = vs.height = call.hasReceiveVideo() ? "auto" : 0;
+        setAllowMute(true);
+        setAllowHold(true);
+        setWebRtcStatus('Connected');
+        setCallConfirmed(true);
+        activeCall.muteAudio(false);
+        start();
       },
 
       callShowStreams: function (call, localStream, remoteStream) {
-        console.log("phone>>> callShowStreams");
-        let remoteVideo = document.getElementById("remote_video");
-        remoteVideo.srcObject = remoteStream; // to play audio and optional video
+        console.log('phone>>> callShowStreams');
+        let remoteVideo = document.getElementById('remote-video-container');
+        remoteVideo.srcObject = remoteStream;
       },
 
       incomingCall: function (call, invite) {
-        console.log("phone>>> incomingCall");
+        console.log('phone>>> incomingCall');
         call.reject();
       },
 
       callHoldStateChanged: function (call, isHold, isRemote) {
-        console.log(
-          //   deepcode ignore AmbiguousConditional: <please specify a reason of ignoring this>
-          "phone>>> callHoldStateChanged " + isHold ? "hold" : "unhold"
-        );
-      },
+        console.log(`phone>>> callHoldStateChanged to ${isHold ? 'hold' : 'unhold'}`);
+      }
     });
   }, [phone, activeCall]);
 
   useEffect(() => {
-    async function connect() {
+    const connect = async () => {
       await phone.checkAvailableDevices();
       phone.setAccount(`+${sourceNumber}`, 'In-App Calling Sample', '');
       await phone.init();
-    }
+    };
     connect();
   }, [sourceNumber]);
 
@@ -142,35 +146,42 @@ export default function DialPad() {
   }, []);
 
   useEffect(() => {
-    if (destNumber.length > 7) {
-      setDestNumberValid(true);
-    } else {
-      setDestNumberValid(false);
-    }
+    destNumber.length > 7 ? setDestNumberValid(true) : setDestNumberValid(false);
+    destNumber.length > 0 ? setAllowBackspace(true) : setAllowBackspace(false);
+    setDestNumber(destNumber.replace(/\D/g, ''));
   }, [destNumber]);
 
   useEffect(() => {
-    if (activeCall === null) { pause() }
+    if (activeCall === null) { pause(); }
   }, [activeCall]);
-  
-  const handleDigitClick = useCallback(
-    (value) => (event) => {
-      if (activeCall) {
-        activeCall.sendDTMF(value)
-      }
-      else {
-        setDestNumber((destNumber) => destNumber.concat(value));
-      }
-    },
-    [activeCall]
-  );
 
-  const handleDestNumberInput = (e) => {
-    setDestNumber(e.target.value.replace(/\D/g, ""));
-  };
+  useEffect(() => {
+    if (callConfirmed) {
+      const formatTime = (time) => time.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false});
+      setCallStatus(`${formatTime(hours)}:${formatTime(minutes)}:${formatTime(seconds)}`);
+    }
+  }, [totalSeconds]);
 
-  const handleSourceNumberInput = (e) => {
-    setSourceNumber(e.target.value.replace(/\D/g, ""));
+  useEffect(() => {
+    if (callConfirmed) {
+      if (onHold && onMute) {
+        setWebRtcStatus('On Hold');
+      } else if (onHold && !onMute) {
+        setWebRtcStatus('On Hold');
+      } else if (!onHold && onMute) {
+        setWebRtcStatus('On Mute');
+      } else if (!onHold && !onMute) {
+        setWebRtcStatus('Connected');
+      }
+    }
+  }, [onHold, onMute]);
+
+  const handleDigitClick = (value) => {
+    activeCall ? activeCall.sendDTMF(value) : setDestNumber((destNumber) => destNumber.concat(value));
+  }
+
+  const handlePhoneNumber = (e) => {
+    setDestNumber(e.target.value.replace(/\D/g, ''));
   };
 
   const handleBackspaceClick = () => {
@@ -179,12 +190,13 @@ export default function DialPad() {
 
   const handleDialClick = () => {
     if (phone.isInitialized()) {
+      setCallStatus('Calling');
+      setWebRtcStatus('Ringing');
       setActiveCall(phone.call(`+${destNumber}`));
+      setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
+      setAllowBackspace(false);
       reset();
-      start();
-    } else {
-      setWebrtcStatus({ color: 'var(--red50)', text: "WebRTC service is disconnected, please try again" });
     }
   };
 
@@ -196,50 +208,83 @@ export default function DialPad() {
     }
   };
 
+  const handleHoldClick = () => {
+    if (activeCall) {
+      if (activeCall.isLocalHold()) {
+        activeCall.hold(false);
+        setOnHold(false);
+      } else {
+        activeCall.hold(true);
+        setOnHold(true);
+      }
+    }
+  };
+
+  const handleMuteClick = () => {
+    if (activeCall) {
+      if (activeCall.isAudioMuted()) {
+        activeCall.muteAudio(false);
+        setOnMute(false);
+      } else {
+        activeCall.muteAudio(true);
+        setOnMute(true);
+      }
+    }
+  };
+
+  const statusBarProps = {
+    muteClick: handleMuteClick,
+    holdClick: handleHoldClick,
+    webRtcStatus,
+    allowMute,
+    allowHold,
+    onMute,
+    onHold
+  };
+
+  const numberInputProps = {
+    onChange: handlePhoneNumber,
+    value: destNumber
+  };
+
+  const endCallButtonProps = {
+    type: 'end-call',
+    onClick: handleHangUpClick,
+    disabled: !allowHangup,
+    Icon: CallEndIcon
+  };
+
+  const startCallButtonProps = {
+    type: 'start-call',
+    onClick: handleDialClick,
+    disabled: !destNumberValid,
+    Icon: CallIcon
+  };
+
+  const backspaceButtonProps = {
+    type: 'backspace',
+    onClick: handleBackspaceClick,
+    disabled: !allowBackspace,
+    Icon: ShortcutOutlinedIcon,
+    iconColor: 'var(--blue65)',
+    fontSize: 'small'
+  };
+
   return (
-    <div className="dialpad-container">
-      <h1>In-App Calling (Global)</h1>
-      <h2>(CLICK TO CALL - WEBRTC)</h2>
-      <div className='status' style={{color: webrtcStatus.color}}>Status: {webrtcStatus.text}</div>
-      <SingleLineInput
-        label={'Source Number'}
-        placeholder={''}
-        value={sourceNumber}
-        note={sourceNumberNote}
-        changeFunction={handleSourceNumberInput}
-      />
-      <SingleLineInput
-        label={'Destination Number'}
-        placeholder={''}
-        value={destNumber}
-        note={destinationNumberNote}
-        changeFunction={handleDestNumberInput}
-      />
-      <div className='digit-grid'>
-        <Digit number={1} letters={' '} onClick={handleDigitClick('1')}/>
-        <Digit number={2} letters={'ABC'} onClick={handleDigitClick('2')}/>
-        <Digit number={3} letters={'DEF'} onClick={handleDigitClick('3')}/>
-        <Digit number={4} letters={'GHI'} onClick={handleDigitClick('4')}/>
-        <Digit number={5} letters={'JKL'} onClick={handleDigitClick('5')}/>
-        <Digit number={6} letters={'MNO'} onClick={handleDigitClick('6')}/>
-        <Digit number={7} letters={'PQRS'} onClick={handleDigitClick('7')}/>
-        <Digit number={8} letters={'TUV'} onClick={handleDigitClick('8')}/>
-        <Digit number={9} letters={'WXYZ'} onClick={handleDigitClick('9')}/>
-        <Digit number={'*'} letters={' '} onClick={handleDigitClick('*')}/>
-        <Digit number={0} letters={'+'} onClick={handleDigitClick('0')}/>
-        <Digit number={'#'} letters={' '} onClick={handleDigitClick('#')}/>
-        <IconButton onClick={handleDialClick} disabled={!destNumberValid}>
-            <WifiCallingIcon sx={{ fontSize: "50px", color: destNumberValid ? "var(--green50)" : "var(--grey80)" }}/>
-        </IconButton>
-        <IconButton onClick={handleBackspaceClick} disabled={destNumber.length === 0}>
-            <BackspaceIcon sx={{ color: destNumber.length > 0 ? "var(--red50)" : "var(--grey80)" }}/>
-        </IconButton>
-        <IconButton onClick={handleHangUpClick} disabled={!allowHangup}>
-            <CallEndIcon sx={{ fontSize: "50px", color: allowHangup ? "var(--red50)" : "var(--grey80)" }}/>
-        </IconButton>
+    <div className='app-container'>
+      <StatusBar {...statusBarProps}/>
+      <div className='dialpad-container'>
+        <h2>{callStatus}</h2>
+        {!allowHangup ? <NumberInput {...numberInputProps}/> : <div className='dialed-number'>{dialedNumber}</div>}
+        <DigitGrid onClick={handleDigitClick}/>
+        <div className='call-controls'>
+          <div className='call-start-end'>
+            {!allowHangup ? <CallControlButton {...startCallButtonProps}/> : <CallControlButton {...endCallButtonProps}/>}
+          </div>
+          <CallControlButton {...backspaceButtonProps}/>
+        </div>
+        <video autoPlay id='remote-video-container' style={{display: 'none'}}></video>
       </div>
-      <div className='call-timer'>{`${hours.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}:${minutes.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}:${seconds.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})}`}</div>
-      <video autoPlay id='remote_video' style={{ display: 'none' }}></video>
     </div>
-  )
+  );
 }
