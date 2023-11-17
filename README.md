@@ -17,6 +17,15 @@ In order to use this sample app, your account must have In-App Calling enabled. 
 
 For more information about API credentials see our [Account Credentials](https://dev.bandwidth.com/docs/account/credentials) page.
 
+# Global Network update
+
+Change the domain to following [here](https://github.com/Bandwidth-Samples/in-app-calling-dialpad-node-react/blob/main/src/components/DialPad.js#L35).
+
+```sh
+      domain: 'sbc.webrtc-app.bandwidth.com',
+      addresses: ['wss://sbc.webrtc-app.bandwidth.com:10081'],
+```
+
 # Running the Application
 
 Use the following command/s to run the application:
