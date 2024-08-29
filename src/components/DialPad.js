@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, addDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
 import { db, setupNotifications } from '../fireabase_helper';
 import '../css/DialPad.css';
@@ -15,13 +15,14 @@ import { Button } from '@mui/material';
 
 export default function DialPad() {
   console.log("Dialpad rendering...");
-  const authToken = process.env.REACT_APP_IN_APP_CALLING_TOKEN;
+  //const authToken = process.env.REACT_APP_IN_APP_CALLING_TOKEN;
   const agentId = process.env.REACT_APP_AGENT_ID;
-  const sourceNumber = process.env.REACT_APP_IN_APP_CALLING_NUMBER;
 
   const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
 
   const [destNumber, setDestNumber] = useState('');
+  const [sourceNumber, setSourceNumber] = useState('');
+  const [authToken, setAuthToken] = useState('');
   const [webRtcStatus, setWebRtcStatus] = useState('Idle');
   const [callStatus, setCallStatus] = useState('Add Number');
   const [destNumberValid, setDestNumberValid] = useState(false);
@@ -29,7 +30,7 @@ export default function DialPad() {
   const [phone, setPhone] = useState(new BandwidthUA());
   const [activeCall, setActiveCall] = useState(null);
   const [callConfirmed, setCallConfirmed] = useState(false);
-  const [dialedNumber, setDialedNumber] = useState('');
+  const [dialedNumber, setDialedNumber] = useState(destNumber);
   const [allowBackspace, setAllowBackspace] = useState(false);
   const [allowMute, setAllowMute] = useState(false);
   const [allowHold, setAllowHold] = useState(false);
@@ -38,6 +39,7 @@ export default function DialPad() {
   const [fbStatus, setFBStatus] = useState('Idle');
   const [fbToken, setFBToken] = useState('');
   const [incomingCall, setIncomingCall] = useState(false);
+  const [needToCallback, setNeedToCallback] = useState(false);
   const [incomingPayload, setIncomingPayload] = useState({});
 
   useEffect(() => {
@@ -49,9 +51,11 @@ export default function DialPad() {
         setFBToken(token);
       }
     }, (msg) => {
-      console.log(msg);
-      setIncomingPayload(msg);
+      console.log('Foreground Notification: ', msg);
+      setIncomingPayload(msg.data);
+      setAuthToken(msg.data.token);
       setIncomingCall(true);
+      setFBStatus('Ringing');
     });
   }, []);
 
@@ -60,11 +64,11 @@ export default function DialPad() {
       (snapshot) => {
         if (snapshot.exists()) {
           var payload = snapshot.data();
-          console.log("onSnapshot Data: ", payload);
           if (payload.callInBackground && document.visibilityState === 'hidden') {
             console.log("User in background:");
             console.log(snapshot.id, '=>', payload);
             setIncomingPayload(payload.callInBackground);
+            setAuthToken(payload.callInBackground.token);
             setIncomingCall(true);
             setFBStatus('Ringing');
           }
@@ -150,6 +154,9 @@ export default function DialPad() {
 
       callConfirmed: function (call, message, cause) {
         console.log('phone>>> callConfirmed');
+        console.log("Call: ", call);
+        console.log("Message: ", message);
+        console.log("Cause: ", cause);
         setFBStatus("In-Call");
         setAllowHangup(true);
         setAllowMute(true);
@@ -163,7 +170,9 @@ export default function DialPad() {
       callShowStreams: function (call, localStream, remoteStream) {
         console.log('phone>>> callShowStreams');
         let remoteVideo = document.getElementById('remote-video-container');
-        remoteVideo.srcObject = remoteStream;
+        if (remoteVideo != undefined) {
+          remoteVideo.srcObject = remoteStream;
+        }
       },
 
       incomingCall: function (call, invite) {
@@ -178,19 +187,16 @@ export default function DialPad() {
   }, [phone, activeCall]);
 
   useEffect(() => {
-    const connect = async () => {
-      await phone.checkAvailableDevices();
-      phone.setAccount(`+${sourceNumber}`, 'In-App Calling Sample', '');
-      await phone.init();
-    };
-    connect();
-  }, [sourceNumber]);
-
-  useEffect(() => {
     return () => {
       phone.deinit();
     };
   }, []);
+
+  const connect = async () => {
+    await phone.checkAvailableDevices();
+    phone.setAccount(`+${sourceNumber}`, 'In-App Calling Sample', '');
+    await phone.init();
+  }
 
   useEffect(() => {
     destNumber.length > 7 ? setDestNumberValid(true) : setDestNumberValid(false);
@@ -242,6 +248,15 @@ export default function DialPad() {
     updateStatus();
   }, [fbStatus, fbToken]);
 
+  useEffect(() => {
+    if (needToCallback) {
+      connect().then(() => {
+        handleDialClick();
+      });
+    }
+    setNeedToCallback(false);
+  }, [needToCallback]);
+
   const handleDigitClick = (value) => {
     activeCall ? activeCall.sendDTMF(value) : setDestNumber((destNumber) => destNumber.concat(value));
   }
@@ -255,15 +270,20 @@ export default function DialPad() {
   };
 
   const handleAcceptClick = () => {
-    setFBStatus("In-Call");
-    setIncomingPayload({});
+    console.log("handleAcceptClick Number: %s", incomingPayload.fromNo);
+    setSourceNumber(`${incomingPayload.toNo.replace(/\D/g, '')}`);
+    setDestNumber(`${incomingPayload.fromNo.replace(/\D/g, '')}`);
     setIncomingCall(false);
+    setIncomingPayload({});
+    setFBStatus("In-Call");
+    setNeedToCallback(true);
   }
 
   const handleDialClick = () => {
     if (phone.isInitialized()) {
       setCallStatus('Calling');
       setWebRtcStatus('Ringing');
+      console.log("Dialed number: ", destNumber);
       setActiveCall(phone.call(`+${destNumber}`));
       setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
@@ -346,7 +366,7 @@ export default function DialPad() {
     if (incomingCall) {
       return <div style={{ backgroundColor: "black", padding: "80px 40px", borderRadius: "10px", textAlign: "center" }}>
         <h2 style={{ color: "white" }}>Incoming call</h2>
-        <h3 style={{ color: "white" }}>Call from: {incomingPayload.fromNo}...</h3>
+        <h3 style={{ color: "white" }}>Call from: {incomingPayload.toNo}...</h3>
         <div style={{ textAlign: "center" }}><Button style={{ backgroundColor: "white", marginRight: "20px" }} color='error'>Reject</Button><Button style={{ backgroundColor: "white" }} onClick={handleAcceptClick}>Accept</Button></div>
       </div>;
     } else {
