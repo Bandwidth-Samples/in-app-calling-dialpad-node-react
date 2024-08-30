@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { collection, addDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
+import React, { useEffect, useState } from 'react';
+import { doc, setDoc, onSnapshot } from "firebase/firestore";
 import { db, setupNotifications } from '../fireabase_helper';
 import '../css/DialPad.css';
 import StatusBar from './StatusBar';
@@ -36,7 +36,7 @@ export default function DialPad() {
   const [allowHold, setAllowHold] = useState(false);
   const [onMute, setOnMute] = useState(false);
   const [onHold, setOnHold] = useState(false);
-  const [fbStatus, setFBStatus] = useState('Idle');
+  const [fbStatusUpdated, updateFBStatus] = useState('Idle');
   const [fbToken, setFBToken] = useState('');
   const [incomingCall, setIncomingCall] = useState(false);
   const [needToCallback, setNeedToCallback] = useState(false);
@@ -55,7 +55,7 @@ export default function DialPad() {
       setIncomingPayload(msg.data);
       setAuthToken(msg.data.token);
       setIncomingCall(true);
-      setFBStatus('Ringing');
+      updateFBStatus('Ringing');
     });
   }, []);
 
@@ -70,7 +70,7 @@ export default function DialPad() {
             setIncomingPayload(payload.callInBackground);
             setAuthToken(payload.callInBackground.token);
             setIncomingCall(true);
-            setFBStatus('Ringing');
+            updateFBStatus('Ringing');
           }
         }
       });
@@ -127,7 +127,7 @@ export default function DialPad() {
       },
 
       outgoingCallProgress: function (call, response) {
-        setFBStatus("Call-Initiate");
+        updateFBStatus("Call-Initiate");
         console.log('phone>>> outgoing call progress');
       },
 
@@ -137,7 +137,7 @@ export default function DialPad() {
           console.log('terminated no active call');
           return;
         }
-        setFBStatus("Idle");
+        updateFBStatus("Idle");
         setAllowHangup(false);
         setActiveCall(null);
         setCallStatus('Add Number');
@@ -157,7 +157,7 @@ export default function DialPad() {
         console.log("Call: ", call);
         console.log("Message: ", message);
         console.log("Cause: ", cause);
-        setFBStatus("In-Call");
+        updateFBStatus("In-Call");
         setAllowHangup(true);
         setAllowMute(true);
         setAllowHold(true);
@@ -193,6 +193,9 @@ export default function DialPad() {
   }, []);
 
   const connect = async () => {
+    if (phone.isInitialized()) {
+      await phone.deinit();
+    }
     await phone.checkAvailableDevices();
     phone.setAccount(`+${sourceNumber}`, 'In-App Calling Sample', '');
     await phone.init();
@@ -232,11 +235,11 @@ export default function DialPad() {
   useEffect(() => {
     async function updateStatus() {
       const payload = {
-        status: fbStatus,
+        status: fbStatusUpdated,
         token: fbToken
       };
       try {
-        const docRef = await setDoc(doc(db, "agents", agentId), payload);
+        const docRef = await setDoc(doc(db, "agents", agentId), payload, { merge: fbStatusUpdated != 'Idle' });
         //const docRef = await addDoc(collection(db, "agents"), payload);
         console.log("Document written with ID: ", docRef);
         console.log("Data: ", payload);
@@ -246,7 +249,7 @@ export default function DialPad() {
       }
     }
     updateStatus();
-  }, [fbStatus, fbToken]);
+  }, [fbStatusUpdated, fbToken]);
 
   useEffect(() => {
     if (needToCallback) {
@@ -275,21 +278,31 @@ export default function DialPad() {
     setDestNumber(`${incomingPayload.fromNo.replace(/\D/g, '')}`);
     setIncomingCall(false);
     setIncomingPayload({});
-    setFBStatus("In-Call");
+    updateFBStatus("In-Call");
     setNeedToCallback(true);
   }
 
+  const handleDeclinedClick = () => {
+    console.log("handleDeclinedClick");
+    updateFBStatus("Idle");
+    setIncomingCall(false);
+    setIncomingPayload({});
+  }
+
   const handleDialClick = () => {
-    if (phone.isInitialized()) {
-      setCallStatus('Calling');
-      setWebRtcStatus('Ringing');
-      console.log("Dialed number: ", destNumber);
-      setActiveCall(phone.call(`+${destNumber}`));
-      setDialedNumber(`+${destNumber}`);
-      setAllowHangup(true);
-      setAllowBackspace(false);
-      reset();
-    }
+    updateFBStatus("Dialing");
+    connect().then(() => {
+      if (phone.isInitialized()) {
+        setCallStatus('Calling');
+        setWebRtcStatus('Ringing');
+        console.log("Dialed number: ", destNumber);
+        setActiveCall(phone.call(`+${destNumber}`));
+        setDialedNumber(`+${destNumber}`);
+        setAllowHangup(true);
+        setAllowBackspace(false);
+        reset();
+      }
+    });
   };
 
   const handleHangUpClick = () => {
@@ -366,8 +379,8 @@ export default function DialPad() {
     if (incomingCall) {
       return <div style={{ backgroundColor: "black", padding: "80px 40px", borderRadius: "10px", textAlign: "center" }}>
         <h2 style={{ color: "white" }}>Incoming call</h2>
-        <h3 style={{ color: "white" }}>Call from: {incomingPayload.toNo}...</h3>
-        <div style={{ textAlign: "center" }}><Button style={{ backgroundColor: "white", marginRight: "20px" }} color='error'>Reject</Button><Button style={{ backgroundColor: "white" }} onClick={handleAcceptClick}>Accept</Button></div>
+        <h3 style={{ color: "white" }}>Call from: {incomingPayload.fromNo}...</h3>
+        <div style={{ textAlign: "center" }}><Button style={{ backgroundColor: "white", marginRight: "20px" }} color='error' onClick={handleDeclinedClick}>Reject</Button><Button style={{ backgroundColor: "white" }} onClick={handleAcceptClick}>Accept</Button></div>
       </div>;
     } else {
       return <div>
