@@ -15,14 +15,14 @@ import { Button } from '@mui/material';
 
 export default function DialPad() {
   console.log("Dialpad rendering...");
-  //const authToken = process.env.REACT_APP_IN_APP_CALLING_TOKEN;
-  const agentId = process.env.REACT_APP_AGENT_ID;
+  const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
+  const authToken = process.env.REACT_APP_AUTH_TOKEN;
+  const sourceNumber = userId;
+  console.log('User ID:', userId);
 
   const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
 
   const [destNumber, setDestNumber] = useState('');
-  const [sourceNumber, setSourceNumber] = useState('');
-  const [authToken, setAuthToken] = useState('');
   const [webRtcStatus, setWebRtcStatus] = useState('Idle');
   const [callStatus, setCallStatus] = useState('Add Number');
   const [destNumberValid, setDestNumberValid] = useState(false);
@@ -39,7 +39,7 @@ export default function DialPad() {
   const [fbStatusUpdated, updateFBStatus] = useState('Idle');
   const [fbToken, setFBToken] = useState('');
   const [incomingCall, setIncomingCall] = useState(false);
-  const [needToCallback, setNeedToCallback] = useState(false);
+  const [initiateCall, setCallInitiate] = useState(false);
   const [incomingPayload, setIncomingPayload] = useState({});
 
   useEffect(() => {
@@ -53,14 +53,13 @@ export default function DialPad() {
     }, (msg) => {
       console.log('Foreground Notification: ', msg);
       setIncomingPayload(msg.data);
-      setAuthToken(msg.data.token);
       setIncomingCall(true);
       updateFBStatus('Ringing');
     });
   }, []);
 
   useEffect(() => {
-    onSnapshot(doc(db, "agents", agentId),
+    onSnapshot(doc(db, "agents", userId),
       (snapshot) => {
         if (snapshot.exists()) {
           var payload = snapshot.data();
@@ -68,7 +67,6 @@ export default function DialPad() {
             console.log("User in background:");
             console.log(snapshot.id, '=>', payload);
             setIncomingPayload(payload.callInBackground);
-            setAuthToken(payload.callInBackground.token);
             setIncomingCall(true);
             updateFBStatus('Ringing');
           }
@@ -93,11 +91,12 @@ export default function DialPad() {
       serverConfig.domain,
       serverConfig.iceServers
     );
-
+    newPhone.checkAvailableDevices();
+    newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
     newPhone.setOAuthToken(authToken);
-    console.log("Token:" + authToken);
+    newPhone.init();
     setPhone(newPhone);
-  }, [authToken]);
+  }, []);
 
   useEffect(() => {
     phone.setListeners({
@@ -187,21 +186,6 @@ export default function DialPad() {
   }, [phone, activeCall]);
 
   useEffect(() => {
-    return () => {
-      phone.deinit();
-    };
-  }, []);
-
-  const connect = async () => {
-    if (phone.isInitialized()) {
-      await phone.deinit();
-    }
-    await phone.checkAvailableDevices();
-    phone.setAccount(`+${sourceNumber}`, 'In-App Calling Sample', '');
-    await phone.init();
-  }
-
-  useEffect(() => {
     destNumber.length > 7 ? setDestNumberValid(true) : setDestNumberValid(false);
     destNumber.length > 0 ? setAllowBackspace(true) : setAllowBackspace(false);
     setDestNumber(destNumber.replace(/\D/g, ''));
@@ -239,7 +223,7 @@ export default function DialPad() {
         token: fbToken
       };
       try {
-        const docRef = await setDoc(doc(db, "agents", agentId), payload, { merge: fbStatusUpdated != 'Idle' });
+        const docRef = await setDoc(doc(db, "agents", userId), payload, { merge: fbStatusUpdated != 'Idle' });
         //const docRef = await addDoc(collection(db, "agents"), payload);
         console.log("Document written with ID: ", docRef);
         console.log("Data: ", payload);
@@ -252,13 +236,11 @@ export default function DialPad() {
   }, [fbStatusUpdated, fbToken]);
 
   useEffect(() => {
-    if (needToCallback) {
-      connect().then(() => {
-        handleDialClick();
-      });
+    if (initiateCall) {
+      handleDialClick();
     }
-    setNeedToCallback(false);
-  }, [needToCallback]);
+    setCallInitiate(false);
+  }, [initiateCall]);
 
   const handleDigitClick = (value) => {
     activeCall ? activeCall.sendDTMF(value) : setDestNumber((destNumber) => destNumber.concat(value));
@@ -274,12 +256,11 @@ export default function DialPad() {
 
   const handleAcceptClick = () => {
     console.log("handleAcceptClick Number: %s", incomingPayload.fromNo);
-    setSourceNumber(`${incomingPayload.toNo.replace(/\D/g, '')}`);
     setDestNumber(`${incomingPayload.fromNo.replace(/\D/g, '')}`);
     setIncomingCall(false);
     setIncomingPayload({});
     updateFBStatus("In-Call");
-    setNeedToCallback(true);
+    setCallInitiate(true);
   }
 
   const handleDeclinedClick = () => {
@@ -290,19 +271,19 @@ export default function DialPad() {
   }
 
   const handleDialClick = () => {
-    updateFBStatus("Dialing");
-    connect().then(() => {
-      if (phone.isInitialized()) {
-        setCallStatus('Calling');
-        setWebRtcStatus('Ringing');
-        console.log("Dialed number: ", destNumber);
-        setActiveCall(phone.call(`+${destNumber}`));
-        setDialedNumber(`+${destNumber}`);
-        setAllowHangup(true);
-        setAllowBackspace(false);
-        reset();
-      }
-    });
+    if (phone.isInitialized()) {
+      updateFBStatus("Calling");
+      setCallStatus('Calling');
+      setWebRtcStatus('Ringing');
+      console.log("Dialed number: ", destNumber);
+      setActiveCall(phone.call(`+${destNumber}`));
+      setDialedNumber(`+${destNumber}`);
+      setAllowHangup(true);
+      setAllowBackspace(false);
+      reset();
+    } else {
+      console.error("BandwithUA not initialized!");
+    }
   };
 
   const handleHangUpClick = () => {
