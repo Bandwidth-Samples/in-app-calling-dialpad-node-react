@@ -193,7 +193,7 @@ export default function DialPad() {
       setCallStatus('Calling');
       setWebRtcStatus('Ringing');
       let extraHeaders = [`User-to-User:eyJhbGciOiJIUzI1NiJ9.WyJoaSJd.-znkjYyCkgz4djmHUPSXl9YrJ6Nix_XvmlwKGFh5ERM;encoding=jwt;aGVsbG8gd29ybGQ;encoding=base64`];
-      setActiveCall(phone.call(`+${phoneNumber}`, extraHeaders));
+      setActiveCall(phone.call(`+${destNumber}`, extraHeaders));
       setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
       setAllowBackspace(false);
