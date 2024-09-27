@@ -156,10 +156,6 @@ To use the listener, you implement it as an anonymous class and provide logic in
 - **Sequence Diagram:** Follow sequence diagram to implement the in call using the SDK
 ![InboundFLow](bandwidth-inbound-react.drawio.svg)
 
-### Error Handling
-
-Errors, especially in networked operations, are inevitable. Ensure you catch, manage, and inform users about these, fostering a seamless experience.
-
 # Running the Application
 
 Use the following command/s to run the application:
@@ -167,3 +163,7 @@ Use the following command/s to run the application:
 ```sh
 yarn start
 ```
+
+# Error Handling
+
+Errors, especially in networked operations, are inevitable. Ensure you catch, manage, and inform users about these, fostering a seamless experience.
