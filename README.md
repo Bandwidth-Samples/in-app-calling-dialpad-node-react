@@ -28,20 +28,11 @@ REACT_APP_ACCOUNT_DISPLAY_NAME             # Put from number/display name here
 REACT_APP_ACCOUNT_PASSWORD                 # use some password or leave it empty
 ```
 
-### Global Network update
-
-Change the domain to following [here](https://github.com/Bandwidth-Samples/in-app-calling-dialpad-node-react/blob/main/src/components/DialPad.js#L35).
-
-```sh
-      domain: 'sbc.webrtc-app.bandwidth.com',
-      addresses: ['wss://sbc.webrtc-app.bandwidth.com:10081'],
-```
-
 # Initialization
 
 - **BandwidthUA**: The instance is available from the outset, Initialization required before making the call, follow the below code snippet for initialization
 ```sh 
-    const serverConfig = {
+const serverConfig = {
       domain: 'gw.webrtc-app.bandwidth.com',
       addresses: ['wss://gw.webrtc-app.bandwidth.com:10081'],
       iceServers: [
@@ -49,18 +40,18 @@ Change the domain to following [here](https://github.com/Bandwidth-Samples/in-ap
         'stun1.l.google.com:19302',
         'stun2.l.google.com:19302',
       ],
-    };
-    const phone = new BandwidthUA();
+};
+const phone = new BandwidthUA();
 
-    phone.setServerConfig(
+phone.setServerConfig(
       serverConfig.addresses,
       serverConfig.domain,
       serverConfig.iceServers
-    );
-    phone.checkAvailableDevices();
-    phone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
-    phone.setOAuthToken(authToken);
-    phone.init();
+);
+phone.checkAvailableDevices();
+phone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
+phone.setOAuthToken(authToken);
+phone.init();
 ```
 
 # Usage
@@ -93,7 +84,7 @@ In the provided code, the `BandwidthUA.setListeners` is used. This listener has 
 To use the listener, you implement it as an anonymous class and provide logic inside each method:
 
 ```sh
-    phone.setListeners({
+phone.setListeners({
       loginStateChanged: function (isLogin, cause) {
         console.log(cause);
         switch ('cause' + cause) {
@@ -143,7 +134,7 @@ To use the listener, you implement it as an anonymous class and provide logic in
       callHoldStateChanged: function (call, isHold, isRemote) {
         console.log(`phone>>> callHoldStateChanged to ${isHold ? 'hold' : 'unhold'} `);
       }
-    });
+});
 ```
 
 ### Configuring Inbound Calls
@@ -156,10 +147,6 @@ To use the listener, you implement it as an anonymous class and provide logic in
 - **Sequence Diagram:** Follow sequence diagram to implement the in call using the SDK
 ![InboundFLow](bandwidth-inbound-react.drawio.svg)
 
-### Error Handling
-
-Errors, especially in networked operations, are inevitable. Ensure you catch, manage, and inform users about these, fostering a seamless experience.
-
 # Running the Application
 
 Use the following command/s to run the application:
@@ -167,3 +154,7 @@ Use the following command/s to run the application:
 ```sh
 yarn start
 ```
+
+# Error Handling
+
+Errors, especially in networked operations, are inevitable. Ensure you catch, manage, and inform users about these, fostering a seamless experience.
