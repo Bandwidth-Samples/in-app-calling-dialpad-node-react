@@ -154,7 +154,7 @@ To use the listener, you implement it as an anonymous class and provide logic in
     - Bridging the both calls to connect caller and callee in a single call
 
 - **Sequence Diagram:** Follow sequence diagram to implement the in call using the SDK
-![InboundFLow](bandwidth-inbound-react.drawio.png)
+![InboundFLow](bandwidth-inbound-react.drawio.svg)
 
 ### Error Handling
 
