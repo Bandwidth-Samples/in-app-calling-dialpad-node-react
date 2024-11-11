@@ -147,6 +147,9 @@ phone.setListeners({
 - **Sequence Diagram:** Follow sequence diagram to implement the in call using the SDK
 ![InboundFLow](bandwidth-inbound-react.drawio.svg)
 
+- **Notification Handler Service Sample:**
+  https://github.com/Bandwidth-Samples/in-app-calling-inbound-demo
+
 # Running the Application
 
 Use the following command/s to run the application:
