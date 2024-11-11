@@ -275,8 +275,9 @@ export default function DialPad() {
       updateFBStatus("Calling");
       setCallStatus('Calling');
       setWebRtcStatus('Ringing');
+      let extraHeaders = [`User-to-User:eyJhbGciOiJIUzI1NiJ9.WyJoaSJd.-znkjYyCkgz4djmHUPSXl9YrJ6Nix_XvmlwKGFh5ERM;encoding=jwt;aGVsbG8gd29ybGQ;encoding=base64`];
       console.log("Dialed number: ", destNumber);
-      setActiveCall(phone.call(`+${destNumber}`));
+      setActiveCall(phone.call(`+${destNumber}`, extraHeaders));
       setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
       setAllowBackspace(false);
