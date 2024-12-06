@@ -48,6 +48,7 @@ phone.setServerConfig(
       serverConfig.domain,
       serverConfig.iceServers
 );
+phone.setWebSocketKeepAlive(5, false, false);
 phone.checkAvailableDevices();
 phone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
 phone.setOAuthToken(authToken);

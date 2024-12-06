@@ -85,7 +85,7 @@ export default function DialPad() {
       ],
     };
     const newPhone = new BandwidthUA();
-
+    newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
     newPhone.setServerConfig(
       serverConfig.addresses,
       serverConfig.domain,
@@ -277,7 +277,8 @@ export default function DialPad() {
       setWebRtcStatus('Ringing');
       let extraHeaders = [`User-to-User:eyJhbGciOiJIUzI1NiJ9.WyJoaSJd.-znkjYyCkgz4djmHUPSXl9YrJ6Nix_XvmlwKGFh5ERM;encoding=jwt;aGVsbG8gd29ybGQ;encoding=base64`];
       console.log("Dialed number: ", destNumber);
-      setActiveCall(phone.call(`+${destNumber}`, extraHeaders));
+      setActiveCall(phone.makeCall(`+${destNumber}`, extraHeaders));
+      //setActiveCall(phone.call(`+${destNumber}`, extraHeaders));
       setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
       setAllowBackspace(false);
