@@ -6,12 +6,12 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 // https://firebase.google.com/docs/web/setup#available-libraries
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyDO2hjQ9Zy4xlGtsG4KGb361Ahn2YGlUZU",
-    authDomain: "notification-dispatcher-be56d.firebaseapp.com",
-    projectId: "notification-dispatcher-be56d",
-    storageBucket: "notification-dispatcher-be56d.appspot.com",
-    messagingSenderId: "394288358610",
-    appId: "1:394288358610:web:401e55d2464231f4a6790b"
+    apiKey: "xxxxx",
+    authDomain: "xxxx.firebaseapp.com",
+    projectId: "xxxxxxx",
+    storageBucket: "xxxxxxx.appspot.com",
+    messagingSenderId: "xxxxxxx",
+    appId: "xxxxxxxxx"
 };
 // Initialize Firebase
 var app;
