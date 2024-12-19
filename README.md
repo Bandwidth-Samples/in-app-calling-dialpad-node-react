@@ -62,7 +62,7 @@ phone.init();
 Making a call using the Bandwidth services involves a series of steps to ensure the call's proper initiation and management.
 
 ```sh
-var activeCall = phone.call('+${destNumber}')
+var activeCall = async phone.makeCall(`${destNumber}`, extraHeaders);
 ```
 
 Keep the `activeCall` instance global in persistant state in order to reuse this instance for call termination, hold & mute.

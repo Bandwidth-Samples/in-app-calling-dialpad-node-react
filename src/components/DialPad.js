@@ -134,7 +134,6 @@ export default function DialPad() {
         console.log(`phone>>> call terminated callback, cause=${cause}`);
         if (call !== activeCall) {
           console.log('terminated no active call');
-          return;
         }
         updateFBStatus("Idle");
         setAllowHangup(false);
@@ -277,7 +276,9 @@ export default function DialPad() {
       setWebRtcStatus('Ringing');
       let extraHeaders = [`User-to-User:eyJhbGciOiJIUzI1NiJ9.WyJoaSJd.-znkjYyCkgz4djmHUPSXl9YrJ6Nix_XvmlwKGFh5ERM;encoding=jwt;aGVsbG8gd29ybGQ;encoding=base64`];
       console.log("Dialed number: ", destNumber);
-      setActiveCall(phone.makeCall(`+${destNumber}`, extraHeaders));
+      phone.makeCall(`${destNumber}`, extraHeaders).then((value) => {
+        setActiveCall(value);
+      });
       //setActiveCall(phone.call(`+${destNumber}`, extraHeaders));
       setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
