@@ -103,7 +103,7 @@ export default function DialPad() {
       loginStateChanged: function (isLogin, cause) {
         console.log(cause);
         // eslint-disable-next-line default-case
-        switch ('cause' + cause) {
+        switch (cause) {
           case 'connected':
             console.log('phone>>> loginStateChanged: connected');
             break;
@@ -279,7 +279,6 @@ export default function DialPad() {
       phone.makeCall(`${destNumber}`, extraHeaders).then((value) => {
         setActiveCall(value);
       });
-      //setActiveCall(phone.call(`+${destNumber}`, extraHeaders));
       setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
       setAllowBackspace(false);

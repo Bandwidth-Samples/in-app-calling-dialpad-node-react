@@ -88,7 +88,7 @@ To use the listener, you implement it as an anonymous class and provide logic in
 phone.setListeners({
       loginStateChanged: function (isLogin, cause) {
         console.log(cause);
-        switch ('cause' + cause) {
+        switch (cause) {
           case 'connected':
             console.log('phone>>> loginStateChanged: connected');
             break;
