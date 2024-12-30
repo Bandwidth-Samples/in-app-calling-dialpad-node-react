@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import { db, setupNotifications } from '../fireabase_helper';
 import '../css/DialPad.css';
 import StatusBar from './StatusBar';
 import DigitGrid from './DigitGrid';
@@ -9,10 +11,15 @@ import CallEndIcon from '@mui/icons-material/CallEnd';
 import ShortcutOutlinedIcon from '@mui/icons-material/ShortcutOutlined';
 import { BandwidthUA } from '@bandwidth/bw-webrtc-sdk';
 import { useStopwatch } from 'react-timer-hook';
+import { Button } from '@mui/material';
 
 export default function DialPad() {
-  const authToken = process.env.REACT_APP_IN_APP_CALLING_TOKEN;
-  const sourceNumber = process.env.REACT_APP_IN_APP_CALLING_NUMBER;
+  console.log("Dialpad rendering...");
+  const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
+  const authToken = process.env.REACT_APP_AUTH_TOKEN;
+  const sourceNumber = userId;
+  console.log('User ID:', userId);
+
   const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
 
   const [destNumber, setDestNumber] = useState('');
@@ -23,12 +30,49 @@ export default function DialPad() {
   const [phone, setPhone] = useState(new BandwidthUA());
   const [activeCall, setActiveCall] = useState(null);
   const [callConfirmed, setCallConfirmed] = useState(false);
-  const [dialedNumber, setDialedNumber] = useState('');
+  const [dialedNumber, setDialedNumber] = useState(destNumber);
   const [allowBackspace, setAllowBackspace] = useState(false);
   const [allowMute, setAllowMute] = useState(false);
   const [allowHold, setAllowHold] = useState(false);
   const [onMute, setOnMute] = useState(false);
   const [onHold, setOnHold] = useState(false);
+  const [fbStatusUpdated, updateFBStatus] = useState('Idle');
+  const [fbToken, setFBToken] = useState('');
+  const [incomingCall, setIncomingCall] = useState(false);
+  const [initiateCall, setCallInitiate] = useState(false);
+  const [incomingPayload, setIncomingPayload] = useState({});
+
+  useEffect(() => {
+    setupNotifications((token) => {
+      console.log("App.js token:" + token);
+      if (token != null) {
+        setFBToken(token);
+      } else {
+        setFBToken(token);
+      }
+    }, (msg) => {
+      console.log('Foreground Notification: ', msg);
+      setIncomingPayload(msg.data);
+      setIncomingCall(true);
+      updateFBStatus('Ringing');
+    });
+  }, []);
+
+  useEffect(() => {
+    onSnapshot(doc(db, "agents", userId),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          var payload = snapshot.data();
+          if (payload.callInBackground && document.visibilityState === 'hidden') {
+            console.log("User in background:");
+            console.log(snapshot.id, '=>', payload);
+            setIncomingPayload(payload.callInBackground);
+            setIncomingCall(true);
+            updateFBStatus('Ringing');
+          }
+        }
+      });
+  }, [])
 
   useEffect(() => {
     const serverConfig = {
@@ -41,22 +85,25 @@ export default function DialPad() {
       ],
     };
     const newPhone = new BandwidthUA();
-
+    newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
     newPhone.setServerConfig(
       serverConfig.addresses,
       serverConfig.domain,
       serverConfig.iceServers
     );
-
+    newPhone.checkAvailableDevices();
+    newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
     newPhone.setOAuthToken(authToken);
+    newPhone.init();
     setPhone(newPhone);
-  },[authToken]);
+  }, []);
 
   useEffect(() => {
     phone.setListeners({
       loginStateChanged: function (isLogin, cause) {
+        console.log(cause);
         // eslint-disable-next-line default-case
-        switch ('cause' + cause) {
+        switch (cause) {
           case 'connected':
             console.log('phone>>> loginStateChanged: connected');
             break;
@@ -79,6 +126,7 @@ export default function DialPad() {
       },
 
       outgoingCallProgress: function (call, response) {
+        updateFBStatus("Call-Initiate");
         console.log('phone>>> outgoing call progress');
       },
 
@@ -86,8 +134,8 @@ export default function DialPad() {
         console.log(`phone>>> call terminated callback, cause=${cause}`);
         if (call !== activeCall) {
           console.log('terminated no active call');
-          return;
         }
+        updateFBStatus("Idle");
         setAllowHangup(false);
         setActiveCall(null);
         setCallStatus('Add Number');
@@ -104,6 +152,10 @@ export default function DialPad() {
 
       callConfirmed: function (call, message, cause) {
         console.log('phone>>> callConfirmed');
+        console.log("Call: ", call);
+        console.log("Message: ", message);
+        console.log("Cause: ", cause);
+        updateFBStatus("In-Call");
         setAllowHangup(true);
         setAllowMute(true);
         setAllowHold(true);
@@ -116,7 +168,9 @@ export default function DialPad() {
       callShowStreams: function (call, localStream, remoteStream) {
         console.log('phone>>> callShowStreams');
         let remoteVideo = document.getElementById('remote-video-container');
-        remoteVideo.srcObject = remoteStream;
+        if (remoteVideo != undefined) {
+          remoteVideo.srcObject = remoteStream;
+        }
       },
 
       incomingCall: function (call, invite) {
@@ -131,21 +185,6 @@ export default function DialPad() {
   }, [phone, activeCall]);
 
   useEffect(() => {
-    const connect = async () => {
-      await phone.checkAvailableDevices();
-      phone.setAccount(`+${sourceNumber}`, 'In-App Calling Sample', '');
-      await phone.init();
-    };
-    connect();
-  }, [sourceNumber]);
-
-  useEffect(() => {
-    return () => {
-      phone.deinit();
-    };
-  }, []);
-
-  useEffect(() => {
     destNumber.length > 7 ? setDestNumberValid(true) : setDestNumberValid(false);
     destNumber.length > 0 ? setAllowBackspace(true) : setAllowBackspace(false);
     setDestNumber(destNumber.replace(/\D/g, ''));
@@ -157,7 +196,7 @@ export default function DialPad() {
 
   useEffect(() => {
     if (callConfirmed) {
-      const formatTime = (time) => time.toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false});
+      const formatTime = (time) => time.toLocaleString('en-US', { minimumIntegerDigits: 2, useGrouping: false });
       setCallStatus(`${formatTime(hours)}:${formatTime(minutes)}:${formatTime(seconds)}`);
     }
   }, [totalSeconds]);
@@ -176,6 +215,32 @@ export default function DialPad() {
     }
   }, [onHold, onMute]);
 
+  useEffect(() => {
+    async function updateStatus() {
+      const payload = {
+        status: fbStatusUpdated,
+        token: fbToken
+      };
+      try {
+        const docRef = await setDoc(doc(db, "agents", userId), payload, { merge: fbStatusUpdated != 'Idle' });
+        //const docRef = await addDoc(collection(db, "agents"), payload);
+        console.log("Document written with ID: ", docRef);
+        console.log("Data: ", payload);
+      } catch (e) {
+        console.error("Error adding document: ", e);
+        console.log("Data: ", payload);
+      }
+    }
+    updateStatus();
+  }, [fbStatusUpdated, fbToken]);
+
+  useEffect(() => {
+    if (initiateCall) {
+      handleDialClick();
+    }
+    setCallInitiate(false);
+  }, [initiateCall]);
+
   const handleDigitClick = (value) => {
     activeCall ? activeCall.sendDTMF(value) : setDestNumber((destNumber) => destNumber.concat(value));
   }
@@ -188,16 +253,38 @@ export default function DialPad() {
     setDestNumber((destNumber) => destNumber.slice(0, -1));
   };
 
+  const handleAcceptClick = () => {
+    console.log("handleAcceptClick Number: %s", incomingPayload.fromNo);
+    setDestNumber(`${incomingPayload.fromNo.replace(/\D/g, '')}`);
+    setIncomingCall(false);
+    setIncomingPayload({});
+    updateFBStatus("In-Call");
+    setCallInitiate(true);
+  }
+
+  const handleDeclinedClick = () => {
+    console.log("handleDeclinedClick");
+    updateFBStatus("Idle");
+    setIncomingCall(false);
+    setIncomingPayload({});
+  }
+
   const handleDialClick = () => {
     if (phone.isInitialized()) {
+      updateFBStatus("Calling");
       setCallStatus('Calling');
       setWebRtcStatus('Ringing');
       let extraHeaders = [`User-to-User:eyJhbGciOiJIUzI1NiJ9.WyJoaSJd.-znkjYyCkgz4djmHUPSXl9YrJ6Nix_XvmlwKGFh5ERM;encoding=jwt;aGVsbG8gd29ybGQ;encoding=base64`];
-      setActiveCall(phone.call(`+${destNumber}`, extraHeaders));
+      console.log("Dialed number: ", destNumber);
+      phone.makeCall(`${destNumber}`, extraHeaders).then((value) => {
+        setActiveCall(value);
+      });
       setDialedNumber(`+${destNumber}`);
       setAllowHangup(true);
       setAllowBackspace(false);
       reset();
+    } else {
+      console.error("BandwithUA not initialized!");
     }
   };
 
@@ -271,21 +358,35 @@ export default function DialPad() {
     fontSize: 'small'
   };
 
-  return (
-    <div className='app-container'>
-      <StatusBar {...statusBarProps}/>
-      <div className='dialpad-container'>
-        <h2>{callStatus}</h2>
-        {!allowHangup ? <NumberInput {...numberInputProps}/> : <div className='dialed-number'>{dialedNumber}</div>}
-        <DigitGrid onClick={handleDigitClick}/>
-        <div className='call-controls'>
-          <div className='call-start-end'>
-            {!allowHangup ? <CallControlButton {...startCallButtonProps}/> : <CallControlButton {...endCallButtonProps}/>}
+  function renderUI() {
+    if (incomingCall) {
+      return <div style={{ backgroundColor: "black", padding: "80px 40px", borderRadius: "10px", textAlign: "center" }}>
+        <h2 style={{ color: "white" }}>Incoming call</h2>
+        <h3 style={{ color: "white" }}>Call from: {incomingPayload.fromNo}...</h3>
+        <div style={{ textAlign: "center" }}><Button style={{ backgroundColor: "white", marginRight: "20px" }} color='error' onClick={handleDeclinedClick}>Reject</Button><Button style={{ backgroundColor: "white" }} onClick={handleAcceptClick}>Accept</Button></div>
+      </div>;
+    } else {
+      return <div>
+        <StatusBar {...statusBarProps} />
+        <div className='dialpad-container'>
+          <h2>{callStatus}</h2>
+          {!allowHangup ? <NumberInput {...numberInputProps} /> : <div className='dialed-number'>{dialedNumber}</div>}
+          <DigitGrid onClick={handleDigitClick} />
+          <div className='call-controls'>
+            <div className='call-start-end'>
+              {!allowHangup ? <CallControlButton {...startCallButtonProps} /> : <CallControlButton {...endCallButtonProps} />}
+            </div>
+            <CallControlButton {...backspaceButtonProps} />
           </div>
-          <CallControlButton {...backspaceButtonProps}/>
+          <video autoPlay id='remote-video-container' style={{ display: 'none' }}></video>
         </div>
-        <video autoPlay id='remote-video-container' style={{display: 'none'}}></video>
-      </div>
+      </div>;
+    }
+  }
+
+  return (
+    <div>
+      {renderUI()}
     </div>
-  );
+  )
 }
