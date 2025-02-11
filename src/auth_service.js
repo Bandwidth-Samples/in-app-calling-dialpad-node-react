@@ -18,7 +18,7 @@ const fetchAuthToken = async () => {
             'Access-Control-Allow-Headers': '*',
             'Access-Control-Allow-Origin': '*',
         };
-        const response = await fetch(`https://cors-anywhere.herokuapp.com/${AUTH_URL}`, {
+        const response = await fetch(`${AUTH_URL}`, {
             method: 'post',
             headers: headers,
             body: 'grant_type=client_credentials'
