@@ -16,7 +16,7 @@
     "@babel/plugin-proposal-private-property-in-object": "^7.16.7"
   },
   "dependencies": {
-    "@bandwidth/bw-webrtc-sdk": "^1.0.7",
+    "@bandwidth/bw-webrtc-sdk": "file:./bw_webrtc_sdk.js",
     "@emotion/react": "^11.8.1",
     "@emotion/styled": "^11.8.1",
     "@mui/icons-material": "^5.14.0",
