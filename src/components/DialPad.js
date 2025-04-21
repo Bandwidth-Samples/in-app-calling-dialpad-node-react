@@ -91,6 +91,16 @@ export default function DialPad() {
       serverConfig.domain,
       serverConfig.iceServers
     );
+
+    //overriding the SIP logs
+    newPhone.setJsSipLogger((...e) => {
+      console.log(...e);
+    });
+    //overriding the SDK logs
+    newPhone.setBWLogger((...e) => {
+      console.log(...e);
+    });
+
     newPhone.checkAvailableDevices();
     newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
     newPhone.setOAuthToken(authToken);
