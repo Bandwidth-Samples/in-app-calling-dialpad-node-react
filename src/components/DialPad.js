@@ -4,6 +4,7 @@ import { db, setupNotifications } from '../fireabase_helper';
 import '../css/DialPad.css';
 import StatusBar from './StatusBar';
 import DigitGrid from './DigitGrid';
+import { initAuth, TOKEN_STORAGE_KEY } from '../auth_service'
 import NumberInput from './NumberInput';
 import CallControlButton from './CallControlButton';
 import CallIcon from '@mui/icons-material/Call';
@@ -16,7 +17,6 @@ import { Button } from '@mui/material';
 export default function DialPad() {
   console.log("Dialpad rendering...");
   const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
-  const authToken = process.env.REACT_APP_AUTH_TOKEN;
   const sourceNumber = userId;
   console.log('User ID:', userId);
 
@@ -56,6 +56,7 @@ export default function DialPad() {
       setIncomingCall(true);
       updateFBStatus('Ringing');
     });
+    initAuth();
   }, []);
 
   useEffect(() => {
@@ -103,7 +104,6 @@ export default function DialPad() {
 
     newPhone.checkAvailableDevices();
     newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
-    newPhone.setOAuthToken(authToken);
     newPhone.init();
     setPhone(newPhone);
   }, []);
@@ -280,21 +280,27 @@ export default function DialPad() {
   }
 
   const handleDialClick = () => {
-    if (phone.isInitialized()) {
-      updateFBStatus("Calling");
-      setCallStatus('Calling');
-      setWebRtcStatus('Ringing');
-      let extraHeaders = [`User-to-User:eyJhbGciOiJIUzI1NiJ9.WyJoaSJd.-znkjYyCkgz4djmHUPSXl9YrJ6Nix_XvmlwKGFh5ERM;encoding=jwt;aGVsbG8gd29ybGQ;encoding=base64`];
-      console.log("Dialed number: ", destNumber);
-      phone.makeCall(`${destNumber}`, extraHeaders).then((value) => {
-        setActiveCall(value);
-      });
-      setDialedNumber(`+${destNumber}`);
-      setAllowHangup(true);
-      setAllowBackspace(false);
-      reset();
+    var authToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (authToken) {
+      if (phone.isInitialized()) {
+        updateFBStatus("Calling");
+        setCallStatus('Calling');
+        setWebRtcStatus('Ringing');
+        let extraHeaders = [`User-to-User:eyJhbGciOiJIUzI1NiJ9.WyJoaSJd.-znkjYyCkgz4djmHUPSXl9YrJ6Nix_XvmlwKGFh5ERM;encoding=jwt;aGVsbG8gd29ybGQ;encoding=base64`];
+        console.log("Dialed number: ", destNumber);
+        phone.setOAuthToken(authToken);
+        phone.makeCall(`${destNumber}`, extraHeaders).then((value) => {
+          setActiveCall(value);
+        });
+        setDialedNumber(`+${destNumber}`);
+        setAllowHangup(true);
+        setAllowBackspace(false);
+        reset();
+      } else {
+        console.error("BandwithUA not initialized!");
+      }
     } else {
-      console.error("BandwithUA not initialized!");
+      console.error("Invalid/Empty oAuth Token");
     }
   };
 
