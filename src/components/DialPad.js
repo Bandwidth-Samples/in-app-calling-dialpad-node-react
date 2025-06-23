@@ -14,11 +14,9 @@ import { useStopwatch } from 'react-timer-hook';
 import { Button } from '@mui/material';
 
 export default function DialPad() {
-  console.log("Dialpad rendering...");
   const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
   const authToken = process.env.REACT_APP_AUTH_TOKEN;
   const sourceNumber = userId;
-  console.log('User ID:', userId);
 
   const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
 
@@ -44,7 +42,7 @@ export default function DialPad() {
 
   useEffect(() => {
     setupNotifications((token) => {
-      console.log("App.js token:" + token);
+      console.log("FCM token:" + token);
       if (token != null) {
         setFBToken(token);
       } else {
@@ -64,8 +62,6 @@ export default function DialPad() {
         if (snapshot.exists()) {
           var payload = snapshot.data();
           if (payload.callInBackground && document.visibilityState === 'hidden') {
-            console.log("User in background:");
-            console.log(snapshot.id, '=>', payload);
             setIncomingPayload(payload.callInBackground);
             setIncomingCall(true);
             updateFBStatus('Ringing');
@@ -85,17 +81,14 @@ export default function DialPad() {
       ],
     };
     const newPhone = new BandwidthUA();
+    console.log(`version: `, newPhone.version());
     newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
     newPhone.setServerConfig(
       serverConfig.addresses,
       serverConfig.domain,
-      serverConfig.iceServers
+      serverConfig.iceServers,
     );
 
-    //overriding the SIP logs
-    newPhone.setJsSipLogger((...e) => {
-      console.log(...e);
-    });
     //overriding the SDK logs
     newPhone.setBWLogger((...e) => {
       console.log(...e);
@@ -111,17 +104,16 @@ export default function DialPad() {
   useEffect(() => {
     phone.setListeners({
       loginStateChanged: function (isLogin, cause) {
-        console.log(cause);
         // eslint-disable-next-line default-case
         switch (cause) {
           case 'connected':
-            console.log('phone>>> loginStateChanged: connected');
             break;
           case 'disconnected':
             console.log('phone>>> loginStateChanged: disconnected');
-            if (phone.isInitialized())
+            if (phone.isInitialized()) {
               // after deinit() phone will disconnect SBC.
               console.log('Cannot connect to SBC server');
+            }
             break;
           case 'login failed':
             console.log('phone>>> loginStateChanged: login failed');
@@ -137,11 +129,9 @@ export default function DialPad() {
 
       outgoingCallProgress: function (call, response) {
         updateFBStatus("Call-Initiate");
-        console.log('phone>>> outgoing call progress');
       },
 
       callTerminated: function (call, message, cause) {
-        console.log(`phone>>> call terminated callback, cause=${cause}`);
         if (call !== activeCall) {
           console.log('terminated no active call');
         }
@@ -156,8 +146,7 @@ export default function DialPad() {
         setOnHold(false);
         setOnMute(false);
         setCallConfirmed(false);
-        console.log(`Call terminated: ${cause}`);
-        console.log('call_terminated_panel');
+        console.log(`Call terminated: ${cause}`);        
       },
 
       callConfirmed: function (call, message, cause) {
@@ -232,13 +221,9 @@ export default function DialPad() {
         token: fbToken
       };
       try {
-        const docRef = await setDoc(doc(db, "agents", userId), payload, { merge: fbStatusUpdated != 'Idle' });
-        //const docRef = await addDoc(collection(db, "agents"), payload);
-        console.log("Document written with ID: ", docRef);
-        console.log("Data: ", payload);
+        const docRef = await setDoc(doc(db, "agents", userId), payload, { merge: fbStatusUpdated != 'Idle' });       
       } catch (e) {
-        console.error("Error adding document: ", e);
-        console.log("Data: ", payload);
+        console.error("Error adding document: ", e);        
       }
     }
     updateStatus();
@@ -263,8 +248,7 @@ export default function DialPad() {
     setDestNumber((destNumber) => destNumber.slice(0, -1));
   };
 
-  const handleAcceptClick = () => {
-    console.log("handleAcceptClick Number: %s", incomingPayload.fromNo);
+  const handleAcceptClick = () => {    
     setDestNumber(`${incomingPayload.fromNo.replace(/\D/g, '')}`);
     setIncomingCall(false);
     setIncomingPayload({});
@@ -273,7 +257,6 @@ export default function DialPad() {
   }
 
   const handleDeclinedClick = () => {
-    console.log("handleDeclinedClick");
     updateFBStatus("Idle");
     setIncomingCall(false);
     setIncomingPayload({});
@@ -294,7 +277,7 @@ export default function DialPad() {
       setAllowBackspace(false);
       reset();
     } else {
-      console.error("BandwithUA not initialized!");
+      //console.error("BandwithUA not initialized!");
     }
   };
 
