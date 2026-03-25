@@ -16,6 +16,7 @@ import { Button } from '@mui/material';
 export default function DialPad() {
   const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
   const authToken = process.env.REACT_APP_AUTH_TOKEN;
+  const accountId = process.env.REACT_APP_ACCOUNT_ID;
   const sourceNumber = userId;
 
   const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
@@ -71,23 +72,18 @@ export default function DialPad() {
   }, [])
 
   useEffect(() => {
-    const serverConfig = {
-      domain: 'gw.webrtc-app.bandwidth.com',
-      addresses: ['wss://gw.webrtc-app.bandwidth.com:10081'],
-      iceServers: [
-        'stun.l.google.com:19302',
-        'stun1.l.google.com:19302',
-        'stun2.l.google.com:19302',
-      ],
-    };
-    const newPhone = new BandwidthUA();
+    const newPhone = new BandwidthUA({
+      accountId: accountId,
+      // Optional overrides:
+      // gatewayUrl: process.env.REACT_APP_GATEWAY_URL,
+      // httpBaseUrl: process.env.REACT_APP_HTTP_BASE_URL,
+      // eventCallbackUrl: process.env.REACT_APP_EVENT_CALLBACK_URL,
+    });
     console.log(`version: `, newPhone.version());
+
+    // These are still accepted for backwards compatibility but are no longer
+    // required — the new SDK connects directly to the WebRTC gateway.
     newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
-    newPhone.setServerConfig(
-      serverConfig.addresses,
-      serverConfig.domain,
-      serverConfig.iceServers,
-    );
 
     //overriding the SDK logs
     newPhone.setBWLogger((...e) => {
@@ -111,8 +107,8 @@ export default function DialPad() {
           case 'disconnected':
             console.log('phone>>> loginStateChanged: disconnected');
             if (phone.isInitialized()) {
-              // after deinit() phone will disconnect SBC.
-              console.log('Cannot connect to SBC server');
+              // after deinit() phone will disconnect from gateway.
+              console.log('Cannot connect to WebRTC gateway server');
             }
             break;
           case 'login failed':
