@@ -1,11 +1,11 @@
 # In-App Calling Dialpad
 
- # Table of Contents
+# Table of Contents
 
-* [Description](#description)
-* [Pre-Requisites](#pre-requisites)
-* [Initialization](#initialization)
-* [Running the Application](#running-the-application)
+- [Description](#description)
+- [Pre-Requisites](#pre-requisites)
+- [Initialization](#initialization)
+- [Running the Application](#running-the-application)
 
 # Description
 
@@ -17,43 +17,48 @@ In order to use this sample app, your account must have In-App Calling enabled. 
 
 For more information about API credentials see our [Account Credentials](https://dev.bandwidth.com/docs/account/credentials) page.
 
-### Environmental Variables
+### Environment Setup
 
-The sample app uses the below environmental variables.
+1. Copy the example environment file:
 
 ```sh
-REACT_APP_IN_APP_CALLING_TOKEN             # You Identity Token
-REACT_APP_ACCOUNT_USERNAME                 # Put from number here
-REACT_APP_ACCOUNT_DISPLAY_NAME             # Put from number/display name here
-REACT_APP_ACCOUNT_PASSWORD                 # use some password or leave it empty
+cp .env.example .env
+```
+
+2. Fill in your values in `.env`:
+
+```sh
+REACT_APP_ACCOUNT_ID=              # Your Bandwidth account ID
+REACT_APP_AUTH_TOKEN=              # Your OAuth / Identity token
+REACT_APP_ACCOUNT_USERNAME=        # Source phone number (e.g. +15551234567)
+```
+
+Optional overrides (uncomment in `.env` if needed):
+
+```sh
+# REACT_APP_GATEWAY_URL=           # Override the WebRTC gateway WebSocket URL
+# REACT_APP_HTTP_BASE_URL=         # Override the Bandwidth REST API base URL
+# REACT_APP_EVENT_CALLBACK_URL=    # Event callback URL for inbound call notifications
 ```
 
 # Initialization
 
-- **BandwidthUA**: The instance is available from the outset, Initialization required before making the call, follow the below code snippet for initialization
-```sh 
-const serverConfig = {
-      domain: 'gw.webrtc-app.bandwidth.com',
-      addresses: ['wss://gw.webrtc-app.bandwidth.com:10081'],
-      iceServers: [
-        'stun.l.google.com:19302',
-        'stun1.l.google.com:19302',
-        'stun2.l.google.com:19302',
-      ],
-};
-const phone = new BandwidthUA();
+- **BandwidthUA**: The instance is available from the outset. Initialization is required before making a call. Follow the below code snippet for initialization:
 
-phone.setServerConfig(
-      serverConfig.addresses,
-      serverConfig.domain,
-      serverConfig.iceServers
-);
-phone.setWebSocketKeepAlive(5, false, false);
+```js
+import { BandwidthUA } from "@bandwidth/bw-webrtc-sdk";
+
+const phone = new BandwidthUA({
+  accountId: accountId,
+});
+
 phone.checkAvailableDevices();
-phone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
+phone.setAccount(`${sourceNumber}`, "In-App Calling Sample", "");
 phone.setOAuthToken(authToken);
-phone.init();
+await phone.init();
 ```
+
+> **Note:** In v1.2.0, `setServerConfig()` is no longer required. The SDK connects directly to the Bandwidth WebRTC backend. The only new requirement is passing `accountId` in the constructor. See the [SDK README](https://github.com/Bandwidth/javascript-webrtc-sdk#migration-from-v11x) for migration details.
 
 # Usage
 
@@ -61,14 +66,15 @@ phone.init();
 
 Making a call using the Bandwidth services involves a series of steps to ensure the call's proper initiation and management.
 
-```sh
-var activeCall = async phone.makeCall(`${destNumber}`, extraHeaders);
+```js
+const activeCall = await phone.makeCall(`${destNumber}`, extraHeaders);
 ```
 
-Keep the `activeCall` instance global in persistant state in order to reuse this instance for call termination, hold & mute.
+Keep the `activeCall` instance in persistent state in order to reuse this instance for call termination, hold & mute.
+
 ### Terminating a Call
 
-```sh
+```js
 activeCall.terminate();
 ```
 
@@ -84,57 +90,58 @@ In the provided code, the `BandwidthUA.setListeners` is used. This listener has 
 
 To use the listener, you implement it as an anonymous class and provide logic inside each method:
 
-```sh
+```js
 phone.setListeners({
-      loginStateChanged: function (isLogin, cause) {
-        console.log(cause);
-        switch (cause) {
-          case 'connected':
-            console.log('phone>>> loginStateChanged: connected');
-            break;
-          case 'disconnected':
-            console.log('phone>>> loginStateChanged: disconnected');            
-            break;
-          case 'login failed':
-            console.log('phone>>> loginStateChanged: login failed');
-            break;
-          case 'login':
-            console.log('phone>>> loginStateChanged: login');
-            break;
-          case 'logout':
-            console.log('phone>>> loginStateChanged: logout');
-            break;
-        }
-      },
+  loginStateChanged: function (isLogin, cause) {
+    console.log(cause);
+    switch (cause) {
+      case "connected":
+        console.log("phone>>> loginStateChanged: connected");
+        break;
+      case "disconnected":
+        console.log("phone>>> loginStateChanged: disconnected");
+        break;
+      case "login failed":
+        console.log("phone>>> loginStateChanged: login failed");
+        break;
+      case "login":
+        console.log("phone>>> loginStateChanged: login");
+        break;
+      case "logout":
+        console.log("phone>>> loginStateChanged: logout");
+        break;
+    }
+  },
 
-      outgoingCallProgress: function (call, response) {
-        updateFBStatus("Call-Initiate");
-        console.log('phone>>> outgoing call progress');
-      },
+  outgoingCallProgress: function (call, response) {
+    console.log("phone>>> outgoing call progress");
+  },
 
-      callTerminated: function (call, message, cause) {
-        console.log(`phone>>> call terminated callback, cause=${cause}`);
-      },
+  callTerminated: function (call, message, cause) {
+    console.log(`phone>>> call terminated callback, cause=${cause}`);
+  },
 
-      callConfirmed: function (call, message, cause) {
-        console.log('phone>>> callConfirmed');
-      },
+  callConfirmed: function (call, message, cause) {
+    console.log("phone>>> callConfirmed");
+  },
 
-      callShowStreams: function (call, localStream, remoteStream) {
-        console.log('phone>>> callShowStreams');
-        let remoteVideo = document.getElementById('remote-video-container');
-        if (remoteVideo != undefined) {
-          remoteVideo.srcObject = remoteStream;
-        }
-      },
+  callShowStreams: function (call, localStream, remoteStream) {
+    console.log("phone>>> callShowStreams");
+    let remoteVideo = document.getElementById("remote-video-container");
+    if (remoteVideo != undefined) {
+      remoteVideo.srcObject = remoteStream;
+    }
+  },
 
-      incomingCall: function (call, invite) {
-        console.log('phone>>> incomingCall');
-      },
+  incomingCall: function (call, invite) {
+    console.log("phone>>> incomingCall");
+  },
 
-      callHoldStateChanged: function (call, isHold, isRemote) {
-        console.log(`phone>>> callHoldStateChanged to ${isHold ? 'hold' : 'unhold'} `);
-      }
+  callHoldStateChanged: function (call, isHold, isRemote) {
+    console.log(
+      `phone>>> callHoldStateChanged to ${isHold ? "hold" : "unhold"}`
+    );
+  },
 });
 ```
 
@@ -142,21 +149,21 @@ phone.setListeners({
 
 - **Overview:** We have used two major capabilities to make the inbound call
 
-    - Caller to Callee & Callback from Callee to Caller
-    - Bridging the both calls to connect caller and callee in a single call
+  - Caller to Callee & Callback from Callee to Caller
+  - Bridging the both calls to connect caller and callee in a single call
 
 - **Sequence Diagram:** Follow sequence diagram to implement the in call using the SDK
-![InboundFLow](bandwidth-inbound-react.drawio.svg)
+  ![InboundFLow](bandwidth-inbound-react.drawio.svg)
 
 - **Notification Handler Service Sample:**
   https://github.com/Bandwidth-Samples/in-app-calling-inbound-demo
 
 # Running the Application
 
-Use the following command/s to run the application:
+Use the following command to run the application:
 
 ```sh
-yarn start
+npm start
 ```
 
 # Error Handling
