@@ -9,13 +9,24 @@
 
 # Description
 
-A simple dial pad application used to create calls using our WebRTC SDK.
+A self-contained dial pad app that exercises the Bandwidth WebRTC SDK against the new BRTC platform. Runs two processes from a single `npm start`:
+
+- **Express backend** (`server/`) — registers the endpoint event callback, handles `outboundConnectionRequest`, places PSTN legs via the Voice API, and returns `<Connect><Endpoint>` BXML to bridge. Listens on `PORT` (default 3000).
+- **React dev server** (`src/`) — serves the UI on port 3001. `src/setupProxy.js` mints short-lived OAuth access tokens at `GET /token` and same-origin-proxies the BW REST API at `/bwapi` so the SDK's endpoint creation doesn't hit a browser CORS preflight.
+
+Inbound Bandwidth callbacks reach the backend via a public tunnel you provide (`CALLBACK_BASE_URL`, typically ngrok or cloudflared → `http://localhost:3000`).
 
 # Pre-Requisites
 
-In order to use this sample app, your account must have In-App Calling enabled. You will also have to generate an auth token using our Identity API.
+Your account must have In-App Calling enabled. For API credentials, see [Account Credentials](https://dev.bandwidth.com/docs/account/credentials).
 
-For more information about API credentials see our [Account Credentials](https://dev.bandwidth.com/docs/account/credentials) page.
+You need an OAuth2 client ID and secret. The dev server mints short-lived access tokens on demand (see `src/setupProxy.js`), so the browser never sees the client secret and no long-lived token is baked into the bundle.
+
+You also need a publicly reachable URL forwarding to `http://localhost:3000` (ngrok, cloudflared, or equivalent) and a Bandwidth Voice application whose `CallInitiatedCallbackUrl` points at `<public-url>/callbacks/bandwidth`. You can update that with the [band CLI](https://github.com/Bandwidth/bw-cli):
+
+```sh
+band app update <app-id> --callback-url https://<your-tunnel>/callbacks/bandwidth
+```
 
 ### Environment Setup
 
@@ -28,17 +39,29 @@ cp .env.example .env
 2. Fill in your values in `.env`:
 
 ```sh
+# Client-visible (React) — baked into the bundle
 REACT_APP_ACCOUNT_ID=              # Your Bandwidth account ID
-REACT_APP_AUTH_TOKEN=              # Your OAuth / Identity token
 REACT_APP_ACCOUNT_USERNAME=        # Source phone number (e.g. +15551234567)
+REACT_APP_EVENT_CALLBACK_URL=      # <CALLBACK_BASE_URL>/callbacks/bandwidth
+
+# Server-side (Express backend in ./server)
+BW_ID_CLIENT_ID=                   # Bandwidth OAuth2 client ID
+BW_ID_CLIENT_SECRET=               # Bandwidth OAuth2 client secret
+ACCOUNT_ID=                        # Same as REACT_APP_ACCOUNT_ID, for the backend
+APPLICATION_ID=                    # Voice application that owns FROM_NUMBER
+FROM_NUMBER=                       # PSTN number the backend originates from
+CALLBACK_BASE_URL=                 # Public tunnel base URL (e.g. https://xyz.trycloudflare.com)
 ```
 
 Optional overrides (uncomment in `.env` if needed):
 
 ```sh
 # REACT_APP_GATEWAY_URL=           # Override the WebRTC gateway WebSocket URL
-# REACT_APP_HTTP_BASE_URL=         # Override the Bandwidth REST API base URL
-# REACT_APP_EVENT_CALLBACK_URL=    # Event callback URL for inbound call notifications
+# REACT_APP_HTTP_BASE_URL=         # Override REST base URL (defaults to /bwapi proxy)
+# HTTP_BASE_URL=                   # Full BW REST URL incl. /v2 (default https://api.bandwidth.com/v2)
+# BW_ID_HOSTNAME=                  # Override the Identity host (default https://api.bandwidth.com)
+# VOICE_URL=                       # Override the Voice API URL (default https://voice.bandwidth.com/api/v2)
+# PORT=                            # Backend port (default 3000)
 ```
 
 # Initialization
@@ -54,7 +77,12 @@ const phone = new BandwidthUA({
 
 phone.checkAvailableDevices();
 phone.setAccount(`${sourceNumber}`, "In-App Calling Sample", "");
-phone.setOAuthToken(authToken);
+
+// Fetch a short-lived access token from the dev server's /token endpoint
+// (backed by setupProxy.js — client credentials stay server-side).
+const { access_token } = await (await fetch("/token")).json();
+phone.setOAuthToken(access_token);
+
 await phone.init();
 ```
 
@@ -160,11 +188,23 @@ phone.setListeners({
 
 # Running the Application
 
-Use the following command to run the application:
+`npm start` runs both the backend and the React dev server concurrently:
 
 ```sh
+npm install
 npm start
+# → Express backend on http://localhost:3000
+# → React dev server on http://localhost:3001 (CRA defaults to 3001 when 3000 is taken)
 ```
+
+You also need a tunnel forwarding `https://<your-public-url>` → `http://localhost:3000`, e.g.:
+
+```sh
+cloudflared tunnel --url http://localhost:3000
+# or: ngrok http 3000
+```
+
+Put the resulting URL into `CALLBACK_BASE_URL` and `REACT_APP_EVENT_CALLBACK_URL` (append `/callbacks/bandwidth` for the latter), and keep the Voice application's callback URL in sync via `band app update`.
 
 # Error Handling
 
