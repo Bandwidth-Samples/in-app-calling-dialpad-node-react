@@ -9,9 +9,9 @@ module.exports = function (app) {
   app.use(
     '/bwapi',
     createProxyMiddleware({
-      target: 'https://api.bandwidth.com',
+      target: 'https://api.bandwidth.com/v2',
       changeOrigin: true,
-      pathRewrite: { '^/bwapi': '/v2' },
+      pathRewrite: { '^/bwapi': '' },
     })
   );
 };
