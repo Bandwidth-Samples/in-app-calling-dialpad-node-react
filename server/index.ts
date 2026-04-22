@@ -1,576 +1,60 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { createProxyMiddleware } from 'http-proxy-middleware';
-import { CallsApi, Configuration } from 'bandwidth-sdk';
 
 const app = express();
 app.use(cors());
-
-// Log ALL incoming requests BEFORE body parsing
-app.use((req, res, next) => {
-    console.log(`\n>>> ${req.method} ${req.path} [${req.get('content-type') || 'no content-type'}]`);
-    next();
-});
-
-// Same-origin relay to the Bandwidth REST API. Mounted BEFORE body parsers so
-// the raw request body is streamed through untouched. A simple fetch-based
-// relay avoids http-proxy-middleware version quirks (works with v2 and v3).
-const BW_API_HOST = (() => {
-    const raw = process.env.HTTP_BASE_URL;
-    if (!raw) return 'https://api.bandwidth.com';
-    try {
-        const u = new URL(raw);
-        return `${u.protocol}//${u.host}`;
-    } catch {
-        return 'https://api.bandwidth.com';
-    }
-})();
-app.use('/bwapi', async (req: Request, res: Response) => {
-    console.log(`[bwapi relay] ${req.method} ${req.url} -> ${BW_API_HOST}/v2${req.url}`);
-    const readBody = (): Promise<Buffer> =>
-        new Promise((resolve, reject) => {
-            const chunks: Buffer[] = [];
-            req.on('data', (c: Buffer) => chunks.push(c));
-            req.on('end', () => resolve(chunks.length ? Buffer.concat(chunks) : Buffer.alloc(0)));
-            req.on('error', reject);
-        });
-    try {
-        const body = await readBody();
-        console.log(`[bwapi relay] body length=${body.length}`);
-        const headers: Record<string, string> = {};
-        for (const [k, v] of Object.entries(req.headers)) {
-            if (typeof v === 'string' && k !== 'host' && k !== 'content-length') {
-                headers[k] = v;
-            }
-        }
-        const upstreamRes = await fetch(`${BW_API_HOST}/v2${req.url}`, {
-            method: req.method,
-            headers,
-            body: body.length ? body : undefined,
-        });
-        console.log(`[bwapi relay] upstream status=${upstreamRes.status}`);
-        res.status(upstreamRes.status);
-        upstreamRes.headers.forEach((value, key) => {
-            if (key.toLowerCase() !== 'transfer-encoding' && key.toLowerCase() !== 'content-encoding') {
-                res.setHeader(key, value);
-            }
-        });
-        const buf = Buffer.from(await upstreamRes.arrayBuffer());
-        res.send(buf);
-    } catch (err: any) {
-        console.error('bwapi relay error:', err.message);
-        res.status(502).json({ error: err.message });
-    }
-});
-
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.text({ type: '*/xml' }));
 
-// Log parsed body
-app.use((req, res, next) => {
-    if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
-        console.log(JSON.stringify(req.body, null, 2));
-    } else if (req.body && typeof req.body === 'string') {
-        console.log(req.body);
-    }
-    next();
-});
+// Required environment variables
+const BW_ID_CLIENT_ID = process.env.BW_ID_CLIENT_ID;
+const BW_ID_CLIENT_SECRET = process.env.BW_ID_CLIENT_SECRET;
+const BW_ID_HOSTNAME = process.env.BW_ID_HOSTNAME || 'https://api.bandwidth.com';
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
-const PROD_VOICE_URL = 'https://voice.bandwidth.com/api/v2';
-
-function getEnvVars() {
-    const env = process.env;
-    const hasUserPass = !!env.BW_USERNAME && !!env.BW_PASSWORD;
-    const hasClientCreds = !!env.BW_ID_CLIENT_ID && !!env.BW_ID_CLIENT_SECRET;
-    if (!hasUserPass && !hasClientCreds) {
-        throw new Error('You must set either BW_USERNAME/BW_PASSWORD or BW_ID_CLIENT_ID/BW_ID_CLIENT_SECRET in your environment.');
-    }
-    const required = ['ACCOUNT_ID', 'APPLICATION_ID', 'FROM_NUMBER', 'CALLBACK_BASE_URL'];
-    for (const v of required) {
-        if (!env[v]) throw new Error(`Missing required environment variable: ${v}`);
-    }
-    return {
-        HTTP_BASE_URL: (env.HTTP_BASE_URL || 'https://api.bandwidth.com/v2') as string,
-        VOICE_URL: (env.VOICE_URL || PROD_VOICE_URL) as string,
-        CALLBACK_BASE_URL: env.CALLBACK_BASE_URL as string,
-        ACCOUNT_ID: env.ACCOUNT_ID as string,
-        APPLICATION_ID: env.APPLICATION_ID as string,
-        BW_USERNAME: env.BW_USERNAME as string | undefined,
-        BW_PASSWORD: env.BW_PASSWORD as string | undefined,
-        BW_ID_CLIENT_ID: env.BW_ID_CLIENT_ID as string | undefined,
-        BW_ID_CLIENT_SECRET: env.BW_ID_CLIENT_SECRET as string | undefined,
-        BW_ID_HOSTNAME: (env.BW_ID_HOSTNAME || 'https://api.bandwidth.com') as string,
-        FROM_NUMBER: env.FROM_NUMBER as string,
-        PORT: parseInt(env.PORT || '3000', 10),
-    };
+if (!BW_ID_CLIENT_ID || !BW_ID_CLIENT_SECRET) {
+    throw new Error('Missing required environment variables: BW_ID_CLIENT_ID, BW_ID_CLIENT_SECRET');
 }
 
-const {
-    HTTP_BASE_URL,
-    VOICE_URL,
-    CALLBACK_BASE_URL,
-    ACCOUNT_ID,
-    APPLICATION_ID,
-    BW_USERNAME,
-    BW_PASSWORD,
-    BW_ID_CLIENT_ID,
-    BW_ID_CLIENT_SECRET,
-    BW_ID_HOSTNAME,
-    FROM_NUMBER,
-    PORT,
-} = getEnvVars();
-
-// Endpoint ID -> Available Status
-let endpointAvailableMap = new Map<string, boolean>();
-// Call ID -> Endpoint ID
-let endpointCallIdMap = new Map<string, string>();
-// Endpoint ID -> Call Status (tracks PSTN leg status for app polling)
-let endpointCallStatusMap = new Map<string, { callId: string; status: string; cause?: string }>();
-
-// --- OAuth Token Management ---
-
-let idToken: string = '';
-let idTokenExpiration: number = 0;
+// Token cache
+let cachedToken: string = '';
+let tokenExpiresAt: number = 0;
 
 async function getAuthToken(): Promise<string> {
-    if (!idToken || Date.now() >= idTokenExpiration) {
-        const username = BW_ID_CLIENT_ID || BW_USERNAME!;
-        const password = BW_ID_CLIENT_SECRET || BW_PASSWORD!;
-        console.log('Fetching new OAuth access token');
-        const response = await fetch(`${BW_ID_HOSTNAME}/api/v1/oauth2/token`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Authorization: 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64'),
-            },
-            body: new URLSearchParams({ grant_type: 'client_credentials' }),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch auth token: ${response.status} ${await response.text()}`);
-        }
-        const authData = await response.json();
-        idToken = authData.access_token;
-        idTokenExpiration = Date.now() + (authData.expires_in - 10) * 1000;
-        console.log(`OAuth token obtained (expires in ${authData.expires_in}s)`);
-    }
-    return idToken;
-}
-
-// --- Endpoint / Call Helpers ---
-
-async function placeCall(endpointId: string, toNumber: string, fromNumber: string): Promise<string> {
-    // Dialpad-compat path: endpoint may have been created by the SDK (not this server's /token),
-    // so it won't be in the pool. Auto-register so status/hangup routes still work.
-    if (!endpointAvailableMap.has(endpointId)) {
-        console.log(`Auto-registering externally created endpoint ${endpointId}`);
-        endpointAvailableMap.set(endpointId, false);
+    if (cachedToken && Date.now() < tokenExpiresAt) {
+        return cachedToken;
     }
 
-    const token = await getAuthToken();
-    const configuration = new Configuration({ accessToken: token });
-
-    if (VOICE_URL !== PROD_VOICE_URL) {
-        console.log(`Using custom voice URL: ${VOICE_URL}`);
-        configuration.basePath = VOICE_URL;
-    }
-
-    const callsApi = new CallsApi(configuration);
-    const body = {
-        applicationId: APPLICATION_ID,
-        to: toNumber,
-        from: fromNumber,
-        answerUrl: `${CALLBACK_BASE_URL}/calls/answer`,
-    };
-
-    const response = await callsApi.createCall(ACCOUNT_ID, body);
-    const callId = response.data.callId;
-    console.log(`Placed outbound call ${callId} from endpoint ${endpointId} to ${toNumber}`);
-    endpointCallIdMap.set(callId, endpointId);
-    endpointCallStatusMap.set(endpointId, { callId, status: 'ringing' });
-    return callId;
-}
-
-function claimFirstAvailableEndpoint(): string {
-    for (const [endpointId, available] of endpointAvailableMap.entries()) {
-        if (available) {
-            claimEndpoint(endpointId);
-            return endpointId;
-        }
-    }
-    return '';
-}
-
-function claimEndpoint(endpointId: string) {
-    if (endpointAvailableMap.has(endpointId)) {
-        console.log(`Claiming endpoint from the pool ${endpointId}`);
-        endpointAvailableMap.set(endpointId, false);
-    }
-}
-
-function releaseEndpoint(endpointId: string) {
-    if (endpointAvailableMap.has(endpointId)) {
-        console.log(`Releasing endpoint to the pool ${endpointId}`);
-        endpointAvailableMap.set(endpointId, true);
-    }
-}
-
-function handleCallDisconnect(callId: string, cause?: string) {
-    const endpointId = endpointCallIdMap.get(callId);
-    if (endpointId) {
-        endpointCallStatusMap.set(endpointId, { callId, status: 'disconnected', cause });
-        releaseEndpoint(endpointId);
-    }
-    endpointCallIdMap.delete(callId);
-}
-
-function processInboundCall(callId: string): string {
-    const requestingEndpointId = endpointCallIdMap.get(callId);
-    if (!requestingEndpointId) {
-        const endpointId = claimFirstAvailableEndpoint();
-        if (endpointId === '') {
-            return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <SpeakSentence voice="julie">You are on-hold. Please wait for an available endpoint to connect to this call.</SpeakSentence>
-    <Redirect redirectUrl="${CALLBACK_BASE_URL}/calls/status"/>
-</Response>`;
-        }
-        return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <SpeakSentence voice="julie">Connecting</SpeakSentence>
-    <Connect>
-        <Endpoint>${endpointId}</Endpoint>
-    </Connect>
-</Response>`;
-    }
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <SpeakSentence voice="julie">Connecting</SpeakSentence>
-    <Connect>
-        <Endpoint>${requestingEndpointId}</Endpoint>
-    </Connect>
-</Response>`;
-}
-
-async function deleteEndpoints(): Promise<void> {
-    const authToken = await getAuthToken();
-    const listResponse = await fetch(`${HTTP_BASE_URL}/accounts/${ACCOUNT_ID}/endpoints`, {
-        headers: { Authorization: 'Bearer ' + authToken },
+    const response = await fetch(`${BW_ID_HOSTNAME}/api/v1/oauth2/token`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: 'Basic ' + Buffer.from(`${BW_ID_CLIENT_ID}:${BW_ID_CLIENT_SECRET}`).toString('base64'),
+        },
+        body: new URLSearchParams({ grant_type: 'client_credentials' }),
     });
-    if (!listResponse.ok) {
-        throw new Error(`Failed to list endpoints: ${listResponse.status} ${await listResponse.text()}`);
+
+    if (!response.ok) {
+        throw new Error(`OAuth token request failed: ${response.status}`);
     }
-    const listData = await listResponse.json();
-    const endpoints: { endpointId: string }[] = listData.data ?? [];
-    console.log(`Deleting ${endpoints.length} endpoint(s)`);
-    await Promise.all(
-        endpoints.map(async ({ endpointId }) => {
-            const delResponse = await fetch(`${HTTP_BASE_URL}/accounts/${ACCOUNT_ID}/endpoints/${endpointId}`, {
-                method: 'DELETE',
-                headers: { Authorization: 'Bearer ' + authToken },
-            });
-            if (!delResponse.ok) {
-                console.error(`Failed to delete endpoint ${endpointId}: ${delResponse.status}`);
-            } else {
-                console.log(`Deleted endpoint ${endpointId}`);
-                endpointAvailableMap.delete(endpointId);
-                endpointCallIdMap.forEach((value, key) => {
-                    if (value === endpointId) endpointCallIdMap.delete(key);
-                });
-            }
-        })
-    );
+
+    const data = await response.json();
+    cachedToken = data.access_token;
+    tokenExpiresAt = Date.now() + (data.expires_in - 10) * 1000;
+    return cachedToken;
 }
 
-// --- Routes ---
-
-// GET /access-token - Mint a short-lived OAuth access token for the browser.
-// The dialpad calls this on mount and hands the result to BandwidthUA.setOAuthToken.
-// BW_CLIENT_ID / BW_CLIENT_SECRET never leave the server.
+// GET /access-token - Return a cached OAuth token (minted server-side).
+// BW_ID_CLIENT_SECRET never leaves the server.
 app.get('/access-token', async (_req: Request, res: Response) => {
     try {
-        const accessToken = await getAuthToken();
-        res.json({ access_token: accessToken });
-    } catch (error: any) {
-        console.error('Error fetching access token:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// GET /token - Create a BRTC endpoint and return the JWT token
-app.get('/token', async (req: Request, res: Response) => {
-    try {
-        const authToken = await getAuthToken();
-
-        const endpointUrl = `${HTTP_BASE_URL}/accounts/${ACCOUNT_ID}/endpoints`;
-        console.log(`Creating endpoint: POST ${endpointUrl}`);
-
-        const endpointResponse = await fetch(endpointUrl, {
-            method: 'POST',
-            headers: {
-                Authorization: 'Bearer ' + authToken,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                type: 'WEBRTC',
-                direction: 'BIDIRECTIONAL',
-                eventCallbackUrl: `${CALLBACK_BASE_URL}/callbacks/bandwidth`,
-                eventFallbackUrl: `${CALLBACK_BASE_URL}/callbacks/bandwidth`,
-                tag: JSON.stringify({ source: 'javascript-sample-app' }),
-            }),
-        });
-
-        if (!endpointResponse.ok) {
-            const errorText = await endpointResponse.text();
-            console.error(`Endpoint creation failed (${endpointResponse.status}): ${errorText}`);
-            return res.status(endpointResponse.status).json({ error: 'Failed to create endpoint', details: errorText });
-        }
-
-        const endpointData = await endpointResponse.json();
-        const endpointId: string = endpointData.data.endpointId;
-        const token: string = endpointData.data.token;
-
-        console.log(`Endpoint created: ${endpointId}`);
-        endpointAvailableMap.set(endpointId, false);
-
-        res.json({ token, endpointId });
-    } catch (error: any) {
-        console.error('Error creating endpoint:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// DELETE /api/endpoint/:endpointId - Delete a BRTC endpoint
-app.delete('/api/endpoint/:endpointId', async (req: Request, res: Response) => {
-    const endpointId = req.params.endpointId;
-    if (!endpointId) {
-        res.status(400).send('Missing endpointId');
-        return;
-    }
-
-    endpointAvailableMap.delete(endpointId);
-    endpointCallIdMap.forEach((value, key) => {
-        if (value === endpointId) endpointCallIdMap.delete(key);
-    });
-
-    try {
-        const authToken = await getAuthToken();
-        const endpointResponse = await fetch(`${HTTP_BASE_URL}/accounts/${ACCOUNT_ID}/endpoints/${endpointId}`, {
-            method: 'DELETE',
-            headers: {
-                Authorization: 'Bearer ' + authToken,
-                'Content-Type': 'application/json',
-            },
-        });
-        if (!endpointResponse.ok) {
-            const errorText = await endpointResponse.text();
-            throw new Error(`Endpoint deletion failed: ${endpointResponse.status} ${errorText}`);
-        }
-        res.sendStatus(200);
-    } catch (error: any) {
-        console.error('Error deleting endpoint:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// POST /callbacks/bandwidth - BRTC endpoint events AND incoming PSTN calls
-app.post('/callbacks/bandwidth', async (req: Request, res: Response) => {
-    const event = req.body;
-    console.log('Callback event:', JSON.stringify(event, null, 2));
-
-    const endpointId: string = event.endpointId;
-    const eventType: string = event.event;
-    const toType: string = event.toType;
-    let to: string = event.to;
-
-    // --- BRTC endpoint events ---
-    switch (eventType) {
-        case 'endpointIneligible':
-            claimEndpoint(endpointId);
-            return res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response/>`);
-
-        case 'endpointEligible':
-            releaseEndpoint(endpointId);
-            return res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response/>`);
-
-        case 'outboundConnectionRequest':
-            console.log(`Outbound call request for endpoint ${endpointId} to ${to} (${toType})`);
-            if (toType === 'PHONE_NUMBER') {
-                if (!to.startsWith('+')) to = `+${to}`;
-                try {
-                    await placeCall(endpointId, to, FROM_NUMBER);
-                } catch (error: any) {
-                    console.error('Error placing outbound call:', error.message);
-                }
-            }
-            return res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response/>`);
-    }
-
-    // --- Incoming PSTN call (Voice API eventType: "initiate") ---
-    if (event.eventType === 'initiate' && event.direction === 'inbound') {
-        console.log(`Incoming PSTN call: ${event.from} -> ${event.to}, callId=${event.callId}`);
-        const xmlResponse = processInboundCall(event.callId);
-        if (event.callId) {
-            const claimedEndpointId = endpointCallIdMap.get(event.callId);
-            if (claimedEndpointId) {
-                endpointCallIdMap.set(event.callId, claimedEndpointId);
-            }
-        }
-        return res.type('application/xml').send(xmlResponse);
-    }
-
-    res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response/>`);
-});
-
-// POST /callbacks/bandwidth/status - Voice API status events (disconnect, etc.)
-app.post('/callbacks/bandwidth/status', (req: Request, res: Response) => {
-    const event = req.body;
-    console.log('Voice status event:', JSON.stringify(event, null, 2));
-
-    if (event.eventType === 'disconnect') {
-        console.log(`Call disconnected: ${event.callId}, cause: ${event.cause}`);
-        handleCallDisconnect(event.callId, event.cause);
-    }
-
-    res.sendStatus(200);
-});
-
-// POST /calls/answer - BXML callback when an outbound call is answered
-app.post('/calls/answer', (req: Request, res: Response) => {
-    const callId: string = req.body.callId;
-    const endpointId = endpointCallIdMap.get(callId);
-    if (endpointId) {
-        endpointCallStatusMap.set(endpointId, { callId, status: 'answered' });
-    }
-    const xmlResponse = processInboundCall(callId);
-    console.log(`Call answer callback for callId: ${callId}`);
-    res.type('application/xml').send(xmlResponse);
-});
-
-// POST /calls/status - Call status updates (disconnect, redirect)
-app.post('/calls/status', async (req: Request, res: Response) => {
-    const callId: string = req.body.callId;
-    const eventType: string = req.body.eventType;
-
-    switch (eventType) {
-        case 'disconnect':
-            console.log(`Call disconnected with ID: ${callId}`);
-            handleCallDisconnect(callId, req.body.cause);
-            res.sendStatus(200);
-            break;
-        case 'redirect':
-        default:
-            console.log(`Call status update for callId: ${callId} (${eventType})`);
-            const xmlResponse = processInboundCall(callId);
-            res.type('application/xml').send(xmlResponse);
-            break;
-    }
-});
-
-// GET /api/endpoint/:endpointId/call-status - Get current PSTN call status for an endpoint
-app.get('/api/endpoint/:endpointId/call-status', (req: Request, res: Response) => {
-    const endpointId = req.params.endpointId;
-    const status = endpointCallStatusMap.get(endpointId);
-    if (!status) {
-        return res.json({ status: 'idle' });
-    }
-    res.json(status);
-});
-
-// POST /api/endpoint/:endpointId/hangup - Hang up the PSTN leg for an endpoint
-app.post('/api/endpoint/:endpointId/hangup', async (req: Request, res: Response) => {
-    const endpointId = req.params.endpointId;
-    const callStatus = endpointCallStatusMap.get(endpointId);
-    if (!callStatus) {
-        return res.status(404).json({ error: 'No active call for this endpoint' });
-    }
-
-    try {
         const token = await getAuthToken();
-        const configuration = new Configuration({ accessToken: token });
-        if (VOICE_URL !== PROD_VOICE_URL) {
-            configuration.basePath = VOICE_URL;
-        }
-
-        const callsApi = new CallsApi(configuration);
-        await callsApi.updateCall(ACCOUNT_ID, callStatus.callId, {
-            state: 'completed',
-        });
-        console.log(`Hung up PSTN leg ${callStatus.callId} for endpoint ${endpointId}`);
-        handleCallDisconnect(callStatus.callId, 'app-hangup');
-        res.sendStatus(200);
+        res.json({ access_token: token });
     } catch (error: any) {
-        console.error(`Error hanging up call for endpoint ${endpointId}:`, error.message);
         res.status(500).json({ error: error.message });
     }
-});
-
-// DELETE /api/endpoints - Delete all endpoints on the account
-app.delete('/api/endpoints', async (req: Request, res: Response) => {
-    try {
-        await deleteEndpoints();
-        res.sendStatus(200);
-    } catch (error: any) {
-        console.error('Error deleting all endpoints:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// POST /simulate-incoming-call - Place a test call to a specific endpoint
-app.post('/simulate-incoming-call', async (req: Request, res: Response) => {
-    const { endpointId, toNumber, fromNumber } = req.body;
-    try {
-        await placeCall(endpointId, toNumber || FROM_NUMBER, fromNumber || FROM_NUMBER);
-        res.sendStatus(200);
-    } catch (error: any) {
-        console.error('Error placing test call:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// GET /health
-app.get('/health', (req: Request, res: Response) => {
-    res.json({ status: 'ok' });
-});
-
-// GET /debug/endpoints
-app.get('/debug/endpoints', (req: Request, res: Response) => {
-    const available: string[] = [];
-    const unavailable: string[] = [];
-    for (const [id, isAvailable] of endpointAvailableMap.entries()) {
-        (isAvailable ? available : unavailable).push(id);
-    }
-    res.json({
-        total: endpointAvailableMap.size,
-        available,
-        unavailable,
-        callMappings: Object.fromEntries(endpointCallIdMap),
-    });
-});
-
-// Catch-all
-app.all('/{*path}', (req: Request, res: Response) => {
-    console.log(`\n!!! UNMATCHED ROUTE: ${req.method} ${req.path}`);
-    res.sendStatus(404);
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`BRTC token server running on http://localhost:${PORT}`);
-    console.log(`  Account:      ${ACCOUNT_ID}`);
-    console.log(`  App ID:       ${APPLICATION_ID}`);
-    console.log(`  From:         ${FROM_NUMBER}`);
-    console.log(`  Callback:     ${CALLBACK_BASE_URL}`);
-    console.log();
-    console.log(`  GET    /token                              - Create endpoint and get JWT`);
-    console.log(`  DELETE /api/endpoint/:endpointId           - Delete endpoint`);
-    console.log(`  GET    /api/endpoint/:endpointId/call-status - Get PSTN call status`);
-    console.log(`  POST   /api/endpoint/:endpointId/hangup   - Hang up PSTN leg`);
-    console.log(`  POST   /callbacks/bandwidth                - BRTC events + incoming PSTN calls`);
-    console.log(`  POST   /callbacks/bandwidth/status         - Voice API status (disconnect)`);
-    console.log(`  POST   /calls/answer                       - Outbound call answer BXML callback`);
-    console.log(`  POST   /calls/status                       - Call status updates`);
-    console.log(`  POST   /simulate-incoming-call             - Place a test call`);
-    console.log(`  GET    /health                             - Health check`);
-    console.log(`  GET    /debug/endpoints                    - Inspect endpoint pool`);
+    console.log(`OAuth token server listening on http://localhost:${PORT}`);
 });
