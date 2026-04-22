@@ -74,15 +74,9 @@ export default function DialPad() {
   useEffect(() => {
     const newPhone = new BandwidthUA({
       accountId: accountId,
-      // Optional overrides:
-      // gatewayUrl: process.env.REACT_APP_GATEWAY_URL,
-      // httpBaseUrl: process.env.REACT_APP_HTTP_BASE_URL,
-      // eventCallbackUrl: process.env.REACT_APP_EVENT_CALLBACK_URL,
     });
     console.log(`version: `, newPhone.version());
 
-    // These are still accepted for backwards compatibility but are no longer
-    // required — the new SDK connects directly to the WebRTC gateway.
     newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
 
     //overriding the SDK logs
