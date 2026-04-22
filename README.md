@@ -1,92 +1,52 @@
 # In-App Calling Dialpad
 
-A minimal sample showing how to migrate from the v1 WebRTC SDK to v2. The key change: instead of baking an auth token into your app, fetch it server-side via OAuth client credentials.
+A simple dial pad application used to create calls using the Bandwidth WebRTC SDK.
 
-# Prerequisites
+## Table of Contents
 
-Your account must have In-App Calling enabled. See [Account Credentials](https://dev.bandwidth.com/docs/account/credentials) for API setup.
+* [Description](#description)
+* [Pre-Requisites](#pre-requisites)
+* [Setup](#setup)
+* [Running the Application](#running-the-application)
+* [SDK Documentation](#sdk-documentation)
 
-# Setup
+## Description
+
+This sample app demonstrates how to build a simple dialing interface with the Bandwidth WebRTC SDK. It includes call controls for mute, hold, and hangup functionality.
+
+## Pre-Requisites
+
+Your account must have In-App Calling enabled. For more information about API credentials, see the [Account Credentials](https://dev.bandwidth.com/docs/account/credentials) page.
+
+You'll need a Signum JWT token (OAuth token) to authenticate with the SDK. The SDK now extracts your `accountId` from the JWT claims automatically.
+
+## Setup
 
 ```sh
 cp .env.example .env
 ```
 
-Edit `.env`:
+Edit `.env` and populate:
 
 ```sh
-# React (baked into bundle)
 REACT_APP_ACCOUNT_ID=<your-account-id>
 REACT_APP_ACCOUNT_USERNAME=<source-phone-number>
-
-# Express backend
-BW_ID_CLIENT_ID=<your-client-id>
-BW_ID_CLIENT_SECRET=<your-client-secret>
+REACT_APP_AUTH_TOKEN=<your-signum-jwt-token>
 ```
 
-# Running
+## Running the Application
 
 ```sh
 npm install
 npm start
-# → Backend on http://localhost:3000
-# → React on http://localhost:3001
 ```
 
-# What Changed
+The app will open at `http://localhost:3000`.
 
-**v1 (old):** Auth token passed via environment variable.
+## SDK Documentation
 
-**v2 (new):** Backend's `GET /access-token` endpoint mints a short-lived token using client credentials. DialPad fetches it on mount and hands it to `setOAuthToken()`. Client secret never leaves the server.
+For detailed SDK usage and API documentation, refer to the [Bandwidth WebRTC SDK documentation](https://dev.bandwidth.com/sdks/webrtc/).
 
-# Minimal Migration Example
+## Error Handling
 
-See `src/components/DialPad.js` for the key pattern:
-
-```js
-// Fetch OAuth token from backend on mount
-const fetchAuthToken = async () => {
-  const res = await fetch('/access-token');
-  const { access_token } = await res.json();
-  return access_token;
-};
-
-// Initialize SDK (same v1 API, v2 SDK)
-const phone = new BandwidthUA({
-  accountId: accountId,
-  gatewayUrl: process.env.REACT_APP_GATEWAY_URL,
-  httpBaseUrl: process.env.REACT_APP_HTTP_BASE_URL,
-  eventCallbackUrl: process.env.REACT_APP_EVENT_CALLBACK_URL,
-});
-
-phone.setAccount(sourceNumber, 'In-App Calling Sample', '');
-const token = await fetchAuthToken();
-phone.setOAuthToken(token);
-await phone.init();
-```
-
-And in `server/index.ts`:
-
-```js
-// Backend endpoint: mint OAuth token (client credentials → access_token)
-app.get('/access-token', async (_req, res) => {
-  const token = await getAuthToken();
-  res.json({ access_token: token });
-});
-
-// getAuthToken() does the client-credentials exchange with Bandwidth's IDP
-async function getAuthToken() {
-  const response = await fetch(`${BW_ID_HOSTNAME}/api/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: 'Basic ' + Buffer.from(`${BW_ID_CLIENT_ID}:${BW_ID_CLIENT_SECRET}`).toString('base64'),
-    },
-    body: new URLSearchParams({ grant_type: 'client_credentials' }),
-  });
-  const data = await response.json();
-  return data.access_token;
-}
-```
-
-That's it. Copy this pattern into your own app.
+Errors are logged to the console. Ensure that your environment variables are correctly set and that your account has In-App Calling enabled.

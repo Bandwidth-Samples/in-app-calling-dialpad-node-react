@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "In-App Calling Dialpad Sample App",
   "private": true,
-  "proxy": "http://localhost:3000",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Bandwidth-Samples/in-app-calling-dialpad-node-react.git"
@@ -14,11 +13,7 @@
     "url": "https://github.com/Bandwidth-Samples/in-app-calling-dialpad-node-react/issues"
   },
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.16.7",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.23",
-    "concurrently": "^9.0.0",
-    "tsx": "^4.20.6"
+    "@babel/plugin-proposal-private-property-in-object": "^7.16.7"
   },
   "dependencies": {
     "@bandwidth/bw-webrtc-sdk": "file:../javascript-webrtc-sdk",
@@ -30,9 +25,6 @@
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^13.0.0",
     "@testing-library/user-event": "^13.2.1",
-    "cors": "^2.8.6",
-    "dotenv": "^16.6.1",
-    "express": "^4.22.1",
     "firebase": "^10.12.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -41,9 +33,7 @@
     "react-timer-hook": "^3.0.0"
   },
   "scripts": {
-    "start": "concurrently -n server,react -c cyan,magenta \"npm:server\" \"npm:react\"",
-    "server": "tsx server/index.ts",
-    "react": "PORT=3001 react-scripts start",
+    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test"
   },

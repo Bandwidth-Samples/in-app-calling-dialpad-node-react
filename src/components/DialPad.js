@@ -15,20 +15,9 @@ import { Button } from '@mui/material';
 
 export default function DialPad() {
   const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
+  const authToken = process.env.REACT_APP_AUTH_TOKEN;
   const accountId = process.env.REACT_APP_ACCOUNT_ID;
   const sourceNumber = userId;
-
-  // OAuth access tokens come from the Express backend's /access-token route
-  // (see server/index.ts), which does the client-credentials exchange server-side.
-  // The `proxy` field in package.json forwards this to http://localhost:3000.
-  const fetchAuthToken = async () => {
-    const res = await fetch('/access-token');
-    if (!res.ok) {
-      throw new Error(`Failed to fetch auth token: ${res.status}`);
-    }
-    const { access_token } = await res.json();
-    return access_token;
-  };
 
   const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
 
@@ -83,36 +72,29 @@ export default function DialPad() {
   }, [])
 
   useEffect(() => {
-    async function initSdk() {
-      const newPhone = new BandwidthUA({
-        accountId: accountId,
-        gatewayUrl: process.env.REACT_APP_GATEWAY_URL,
-        httpBaseUrl: process.env.REACT_APP_HTTP_BASE_URL,
-        eventCallbackUrl: process.env.REACT_APP_EVENT_CALLBACK_URL,
-      });
-      console.log(`version: `, newPhone.version());
-
-      // These are still accepted for backwards compatibility but are no longer
-      // required — the new SDK connects directly to the WebRTC gateway.
-      newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
-
-      //overriding the SDK logs
-      newPhone.setBWLogger((...e) => {
-        console.log(...e);
-      });
-
-      newPhone.checkAvailableDevices();
-      newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
-
-      const token = await fetchAuthToken();
-      newPhone.setOAuthToken(token);
-      await newPhone.init();
-      setPhone(newPhone);
-    }
-
-    initSdk().catch((err) => {
-      console.error('SDK init failed:', err);
+    const newPhone = new BandwidthUA({
+      accountId: accountId,
+      // Optional overrides:
+      // gatewayUrl: process.env.REACT_APP_GATEWAY_URL,
+      // httpBaseUrl: process.env.REACT_APP_HTTP_BASE_URL,
+      // eventCallbackUrl: process.env.REACT_APP_EVENT_CALLBACK_URL,
     });
+    console.log(`version: `, newPhone.version());
+
+    // These are still accepted for backwards compatibility but are no longer
+    // required — the new SDK connects directly to the WebRTC gateway.
+    newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
+
+    //overriding the SDK logs
+    newPhone.setBWLogger((...e) => {
+      console.log(...e);
+    });
+
+    newPhone.checkAvailableDevices();
+    newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
+    newPhone.setOAuthToken(authToken);
+    newPhone.init();
+    setPhone(newPhone);
   }, []);
 
   useEffect(() => {
