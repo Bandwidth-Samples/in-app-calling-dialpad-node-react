@@ -74,6 +74,12 @@ export default function DialPad() {
   useEffect(() => {
     const newPhone = new BandwidthUA({
       accountId: accountId,
+      // Overrides below are only for non-production testing. Leave these env
+      // vars empty (or unset) in real deployments so the SDK uses its
+      // Bandwidth production defaults.
+      ...(process.env.REACT_APP_HTTP_BASE_URL && { httpBaseUrl: process.env.REACT_APP_HTTP_BASE_URL }),
+      ...(process.env.REACT_APP_GATEWAY_URL && { gatewayUrl: process.env.REACT_APP_GATEWAY_URL }),
+      ...(process.env.REACT_APP_EVENT_CALLBACK_URL && { eventCallbackUrl: process.env.REACT_APP_EVENT_CALLBACK_URL }),
     });
     console.log(`version: `, newPhone.version());
 
