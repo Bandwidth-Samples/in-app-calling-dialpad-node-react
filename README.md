@@ -34,7 +34,7 @@ Edit `.env` and populate:
 
 ```sh
 REACT_APP_AUTH_TOKEN=<your-signum-jwt-token>
-REACT_APP_ACCOUNT_USERNAME=<source-phone-number>
+REACT_APP_ACCOUNT_USERNAME=<source-phone-number-e164>
 ```
 
 ## Running the Application

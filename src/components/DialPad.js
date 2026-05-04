@@ -14,9 +14,8 @@ import { useStopwatch } from 'react-timer-hook';
 import { Button } from '@mui/material';
 
 export default function DialPad() {
-  const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
   const authToken = process.env.REACT_APP_AUTH_TOKEN;
-  const sourceNumber = userId;
+  const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
 
   const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
 
@@ -72,10 +71,10 @@ export default function DialPad() {
 
   useEffect(() => {
     const newPhone = new BandwidthUA({
-      // Optional: skip server-side lookup when appId/fromNumber are already known.
+      fromNumber: userId,
+      // Optional: skip server-side app lookup when appId is already known.
       // gatewayUrl is for non-production testing only — leave unset in real deployments.
       ...(process.env.REACT_APP_APP_ID && { appId: process.env.REACT_APP_APP_ID }),
-      ...(process.env.REACT_APP_FROM_NUMBER && { fromNumber: process.env.REACT_APP_FROM_NUMBER }),
       ...(process.env.REACT_APP_GATEWAY_URL && { gatewayUrl: process.env.REACT_APP_GATEWAY_URL }),
     });
     console.log(`version: `, newPhone.version());
