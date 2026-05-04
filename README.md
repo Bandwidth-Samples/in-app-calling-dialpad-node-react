@@ -22,7 +22,7 @@ You'll need a Signum JWT token (OAuth token) to authenticate with the SDK.
 
 ## SDK Defaults
 
-This sample configures the SDK with only `accountId` and the OAuth token. The WebRTC gateway URL, Bandwidth REST base URL, and event callback URL all use the SDK's built-in production defaults — do not override them. Your own integration should do the same unless Bandwidth support has specifically directed you to a different endpoint.
+This sample connects using your account ID and Signum OAuth token. The SDK authenticates directly with the Bandwidth WebRTC gateway — no REST endpoint creation call is made. The gateway URL uses the SDK's built-in production default; do not override it unless Bandwidth support has specifically directed you to a different endpoint.
 
 ## Setup
 
@@ -33,9 +33,8 @@ cp .env.example .env
 Edit `.env` and populate:
 
 ```sh
-REACT_APP_ACCOUNT_ID=<your-account-id>
-REACT_APP_ACCOUNT_USERNAME=<source-phone-number>
 REACT_APP_AUTH_TOKEN=<your-signum-jwt-token>
+REACT_APP_ACCOUNT_USERNAME=<source-phone-number>
 ```
 
 ## Running the Application

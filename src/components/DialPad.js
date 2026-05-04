@@ -16,7 +16,6 @@ import { Button } from '@mui/material';
 export default function DialPad() {
   const userId = process.env.REACT_APP_ACCOUNT_USERNAME;
   const authToken = process.env.REACT_APP_AUTH_TOKEN;
-  const accountId = process.env.REACT_APP_ACCOUNT_ID;
   const sourceNumber = userId;
 
   const { totalSeconds, seconds, minutes, hours, start, pause, reset } = useStopwatch({ autoStart: false });
@@ -73,13 +72,11 @@ export default function DialPad() {
 
   useEffect(() => {
     const newPhone = new BandwidthUA({
-      accountId: accountId,
-      // Overrides below are only for non-production testing. Leave these env
-      // vars empty (or unset) in real deployments so the SDK uses its
-      // Bandwidth production defaults.
-      ...(process.env.REACT_APP_HTTP_BASE_URL && { httpBaseUrl: process.env.REACT_APP_HTTP_BASE_URL }),
+      // Optional: skip server-side lookup when appId/fromNumber are already known.
+      // gatewayUrl is for non-production testing only — leave unset in real deployments.
+      ...(process.env.REACT_APP_APP_ID && { appId: process.env.REACT_APP_APP_ID }),
+      ...(process.env.REACT_APP_FROM_NUMBER && { fromNumber: process.env.REACT_APP_FROM_NUMBER }),
       ...(process.env.REACT_APP_GATEWAY_URL && { gatewayUrl: process.env.REACT_APP_GATEWAY_URL }),
-      ...(process.env.REACT_APP_EVENT_CALLBACK_URL && { eventCallbackUrl: process.env.REACT_APP_EVENT_CALLBACK_URL }),
     });
     console.log(`version: `, newPhone.version());
 

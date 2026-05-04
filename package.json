@@ -13,8 +13,7 @@
     "url": "https://github.com/Bandwidth-Samples/in-app-calling-dialpad-node-react/issues"
   },
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.16.7",
-    "http-proxy-middleware": "^3.0.5"
+    "@babel/plugin-proposal-private-property-in-object": "^7.16.7"
   },
   "dependencies": {
     "@bandwidth/bw-webrtc-sdk": "file:../javascript-webrtc-sdk",
