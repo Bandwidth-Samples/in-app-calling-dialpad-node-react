@@ -74,20 +74,16 @@ export default function DialPad() {
       fromNumber: userId,
       // Optional: skip server-side app lookup when appId is already known.
       // gatewayUrl is for non-production testing only — leave unset in real deployments.
-      ...(process.env.REACT_APP_APP_ID && { appId: process.env.REACT_APP_APP_ID }),
+      ...(process.env.REACT_APP_APP_ID && { applicationId: process.env.REACT_APP_APP_ID }),
       ...(process.env.REACT_APP_GATEWAY_URL && { gatewayUrl: process.env.REACT_APP_GATEWAY_URL }),
     });
     console.log(`version: `, newPhone.version());
 
-    newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
-
-    //overriding the SDK logs
     newPhone.setBWLogger((...e) => {
       console.log(...e);
     });
 
     newPhone.checkAvailableDevices();
-    newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
     newPhone.setOAuthToken(authToken);
     newPhone.init();
     setPhone(newPhone);
@@ -259,9 +255,8 @@ export default function DialPad() {
       updateFBStatus("Calling");
       setCallStatus('Calling');
       setWebRtcStatus('Ringing');
-      let extraHeaders = [`User-to-User:eyJhbGciOiJIUzI1NiJ9.WyJoaSJd.-znkjYyCkgz4djmHUPSXl9YrJ6Nix_XvmlwKGFh5ERM;encoding=jwt;aGVsbG8gd29ybGQ;encoding=base64`];
       console.log("Dialed number: ", destNumber);
-      phone.makeCall(`${destNumber}`, extraHeaders).then((value) => {
+      phone.makeCall(`${destNumber}`).then((value) => {
         setActiveCall(value);
       });
       setDialedNumber(`+${destNumber}`);
